@@ -5,3 +5,4 @@ check_generation_v2.py
 find_working_model.py
 verify_trace.py
 __pycache__
+env/
