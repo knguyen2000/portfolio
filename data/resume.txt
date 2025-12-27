@@ -1,0 +1,15 @@
+John Doe
+Senior AI Engineer
+
+Experience:
+- Led a team of 50 engineers to build a scalable RAG system at TechCorp.
+- Developed "OLMOTRACE", a verifiable generation engine using Suffix Arrays.
+- Reduced cloud costs by 40% by optimizing GPU utilization for large language models.
+
+Skills:
+- Python, TensorFlow, PyTorch
+- Distributed Systems, Kubernetes
+- Natural Language Processing (NLP)
+
+Education:
+- M.S. in Computer Science, Stanford University
