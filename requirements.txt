@@ -1,4 +1,4 @@
-.streamlit
+streamlit
 google-genai
 st-click-detector
 toml
