@@ -28,6 +28,12 @@ st.markdown("""
         text-align: center;
         margin-bottom: 2rem;
     }
+    
+    /* Hide Streamlit default elements */
+    #MainMenu {visibility: hidden;}
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
+    .stDeployButton {display:none;}
 </style>
 """, unsafe_allow_html=True)
 
