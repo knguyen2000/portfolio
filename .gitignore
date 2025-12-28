@@ -1,8 +1,9 @@
 .streamlit
 working_model.txt
-check_models.py
-check_generation_v2.py
-find_working_model.py
+check_*.py
 verify_trace.py
-__pycache__
+list_models_simple.py
 env/
+**/env/
+__pycache__/
+*.pyc

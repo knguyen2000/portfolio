@@ -1,4 +1,7 @@
-streamlit
-google-generativeai
+.streamlit
+google-genai
 st-click-detector
+toml
+PyPDF2
+python-docx
 watchdog
