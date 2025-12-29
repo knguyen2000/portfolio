@@ -266,6 +266,9 @@ for i, chunk in enumerate(chunks):
             # Handle Bold Syntax
             stripped = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', stripped)
             
+            # Handle Markdown Links
+            stripped = re.sub(r'\[(.*?)\]\((.*?)\)', r'<a href="\2" target="_blank" style="color: #007bff; text-decoration: none; font-weight: bold;">\1</a>', stripped)
+            
             # Check for bullet points
             if stripped.startswith("-") or stripped.startswith("*"):
                 if not in_list:

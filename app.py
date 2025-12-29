@@ -83,7 +83,7 @@ with st.sidebar:
             <a href="mailto:khuongnguyen211000@gmail.com" style="text-decoration: none; color: #ea4335; font-size: 28px;">
                 <i class="fa-solid fa-envelope"></i>
             </a>
-            <a href="https://drive.google.com/file/d/1ZFrhWioHuzSf3SUmp-l_wn0aed4d86vd/view?usp=sharing" target="_blank" style="text-decoration: none; color: inherit; font-size: 28px;">
+            <a href="https://drive.google.com/file/d/1Nx6z3jjxkYVhexlMXxiZLns6Ucg7IR_9/view" target="_blank" style="text-decoration: none; color: inherit; font-size: 28px;">
                 <i class="fa-solid fa-address-card"></i>
             </a>
         </div>
@@ -93,8 +93,12 @@ with st.sidebar:
     st.markdown("<br>", unsafe_allow_html=True)
     st.page_link("pages/about.py", label="About Me", use_container_width=True)
 
-    # Spacer
-    st.markdown("<br>" * 1, unsafe_allow_html=True)
+    if st.button("Reset Conversation"):
+        st.session_state.messages = []
+        st.session_state.view_doc = None
+        st.session_state.highlight_phrase = None
+        st.rerun()
+    st.markdown("---")
 
     # Collapsible Admin Section
     with st.expander("Admin Access"):
@@ -162,7 +166,7 @@ with st.sidebar:
             st.markdown("---")
             st.subheader("Manage Files")
             
-            # Delete Functionality
+            # Delete
             existing_files = [f for f in os.listdir("data") if os.path.isfile(os.path.join("data", f))]
             files_to_delete = st.multiselect("Select files to delete:", existing_files)
             
@@ -179,13 +183,6 @@ with st.sidebar:
                 st.rerun()
         elif passcode:
             st.error("Invalid Passcode")
-    
-    st.markdown("---")
-    if st.button("Reset Conversation"):
-        st.session_state.messages = []
-        st.session_state.view_doc = None
-        st.session_state.highlight_phrase = None
-        st.rerun()
 
 # --- UI LAYOUT ---
 if "debug_log" not in st.session_state:
