@@ -18,7 +18,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# --- CSS STYLING FOR HIGHLIGHTS ---
+# --- CSS STYLING FOR HIGHLIGHTS & LAYOUT ---
 st.markdown("""
 <style>
    .verbatim-match {
@@ -36,6 +36,14 @@ st.markdown("""
     .main-header {
         text-align: center;
         margin-bottom: 2rem;
+    }
+    
+    div[data-testid="stHorizontalBlock"] > div:nth-child(2) {
+        position: sticky;
+        top: 4rem;
+        align-self: flex-start;
+        max-height: 90vh;
+        overflow-y: auto;
     }
 </style>
 """, unsafe_allow_html=True)

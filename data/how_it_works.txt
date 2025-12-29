@@ -19,7 +19,7 @@ System Architecture
    I choose this model as the optimal trade-off between Reasoning Density and Inference Efficiency:
    - 27B parameter scale provides sufficient capacity to strictly follow rigid negative constraints
    - Smaller models tend to paraphrase inputs, breaking verification. This model maintains high fidelity to source text while still synthesizing coherent answers.
-   - Sufficient rate limits at 0 costs RPD: 14.4K, RPM: 30, TPM: 15K (only suffice 2 requests/min now due to RAG)
+   - Sufficient rate limits at 0 costs RPD: 14.4K, RPM: 30, TPM: 15K (worst case when model have to go through all knowledge, only 2 requests/min)
  - Deployment: Streamlit Cloud
 
 Trace Engine
