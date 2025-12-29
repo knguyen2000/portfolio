@@ -1,0 +1,123 @@
+OVERVIEW Modern congestion control algorithms increasingly rely on explicit network modeling rather than purely loss-driven feedback. Google’s Bottleneck Bandwidth and Round-trip propagation time (BBR) family represents a prominent shift toward model-based congestion control, where sending behavior is determined by estimates of bottleneck bandwidth and minimum round-trip time rather than packet loss alone. The latest iteration, BBRv3, introduces refinements intended to improve coexistence with traditional loss-based TCP variants such as Reno and CUBIC, particularly in shallow-buffer environments where earlier BBR versions exhibited severe fairness issues .
+
+While prior evaluations show that BBRv3 improves bandwidth sharing among elastic TCP flows, these studies primarily focus on throughput-centric metrics such as average rate and fairness indices. Such metrics are suitable for bulk data transfers but do not adequately represent the performance requirements of real-time, latency-sensitive applications. Real-time media systems, including WebRTC-based video conferencing and cloud gaming, operate under fundamentally different constraints. Their performance is governed by delay variation, delivery regularity, and short-term interruption events rather than sustained throughput alone .
+
+WebRTC applications typically run over UDP and employ application-layer congestion control mechanisms, such as Google Congestion Control (GCC), that are designed to maintain stable frame delivery and low latency. These controllers are conservative in their response to congestion signals, particularly packet loss, to preserve playback continuity. When such real-time flows share a bottleneck with aggressive TCP traffic, even if average throughput is preserved, increased queueing delay and jitter can significantly degrade user-perceived Quality of Experience (QoE). This mismatch between throughput fairness and application-level performance is not captured by conventional congestion control evaluations .
+
+The problem is amplified under realistic deployment conditions. Although architectures such as Low Latency, Low Loss, Scalable Throughput (L4S) are designed to enable safe coexistence between low-latency and high-throughput traffic, they require specialized queue management support that is not widely deployed. As a result, many real-world interactions between WebRTC traffic and modern TCP variants, including BBRv3, occur over legacy FIFO bottlenecks that provide only coarse congestion signals. Under such conditions, the behavior of BBRv3 toward real-time applications remains insufficiently understood .
+
+This project addresses that gap by shifting the evaluation of BBRv3 fairness from a bandwidth-centric perspective to an application-centric one. Rather than asking whether BBRv3 evenly shares capacity, the project examines whether a WebRTC-based real-time application can maintain acceptable Quality of Experience when competing with BBRv3-controlled TCP traffic over a shared FIFO bottleneck. The study focuses on application-level outcomes such as frame delivery regularity, stall events, and latency inflation, alongside traditional network-level measurements.
+
+The central research question is: Can BBRv3 preserve acceptable Quality of Experience for WebRTC-based real-time applications when coexisting with bulk TCP traffic over legacy FIFO bottlenecks? By experimentally evaluating this question in a controlled testbed, the project aims to determine whether improvements in throughput fairness achieved by BBRv3 translate into practical coexistence safety for latency-sensitive, inelastic workloads, or whether additional mechanisms are required to bridge this gap
+
+METHODLOGY The project evaluates the coexistence behavior of BBRv3 TCP traffic and WebRTC real-time media traffic under controlled network conditions. The methodology is based on a reproducible experimental testbed that isolates network-level effects from host-side artifacts and enables precise measurement of both transport-layer behavior and application-level Quality of Experience.
+
+Experimental Platform and Topology
+
+All experiments are conducted on the FABRIC programmable network testbed at a single physical site to eliminate inter-site latency and variability. Four physical nodes are provisioned and initially connected through a shared Layer 2 network, then reconfigured into a forced Layer 3 topology to ensure a single, well-defined bottleneck.
+
+The nodes serve the following roles:
+
+WebRTC Sender (Gamer A): Generates and transmits real-time video traffic.
+
+WebRTC Receiver (Receiver B): Receives video, generates RTCP feedback, and records application-level metrics.
+
+Router (Router C): Enforces bandwidth, queueing, and loss conditions and acts as the sole network bottleneck.
+
+TCP Cross-Traffic Generator (Attacker D): Produces competing TCP traffic using BBRv3 via iperf3.
+
+Static routing rules ensure that all WebRTC and TCP packets traverse Router C. This prevents unintended bypass paths and guarantees that congestion effects originate from a single queue.
+
+Bottleneck Configuration
+
+Router C enforces the bottleneck using Linux Traffic Control (tc). A Hierarchical Token Bucket (HTB) queue caps the link capacity at 40 Mbps. A fixed FIFO queue of 1000 packets is used to emulate legacy bottleneck behavior. No Active Queue Management or L4S-specific mechanisms are enabled.
+
+For lossy experiments, controlled random packet loss is injected at Router C using netem. Network interface offloading features (TSO, GSO, GRO) are disabled to ensure accurate queueing and delay measurement. ICMP redirects are disabled to preserve routing correctness.
+
+WebRTC Traffic Generation
+
+The WebRTC sender streams a fixed, high-motion video clip at a target rate of 60 frames per second to emulate an interactive cloud gaming workload. A constant frame rate and fixed resolution are enforced to minimize content-driven variability.
+
+The media pipeline is implemented using GStreamer with Python bindings. Video decoding uses GPU acceleration when available, with automatic fallback to software decoding if required. Decoded frames are passed to an aiortc-based WebRTC stack, which performs real-time H.264 encoding on the CPU and transmits frames over UDP.
+
+The sender minimizes buffering to prioritize frame freshness. RTCP feedback from the receiver forms a closed-loop control path that influences WebRTC congestion control behavior.
+
+TCP Cross-Traffic Generation
+
+Competing background traffic is generated by iperf3 running on Attacker D with BBRv3 enabled at the kernel level. The TCP flow aggressively probes for available bandwidth and is configured to saturate the bottleneck when active. This represents a worst-case coexistence scenario for real-time traffic.
+
+Experiment Execution Phases
+
+Each experiment follows a fixed three-phase sequence:
+
+Baseline Phase: WebRTC traffic runs alone to establish reference QoE and latency measurements.
+
+Wired Attack Phase: BBRv3 TCP cross-traffic is introduced while WebRTC continues streaming.
+
+Lossy Attack Phase: The wired attack configuration is repeated with controlled random packet loss enabled.
+
+Each run lasts for the full duration of the video clip. All configurations are repeated multiple times, and results are averaged to reduce run-to-run variance. Experiment setup, execution, and teardown are fully automated via a custom orchestration controller.
+
+Measurement and Data Collection
+
+Application-level metrics are recorded at the WebRTC receiver, including frame arrival times, instantaneous frame rate, stall duration, and delivered bitrate. Stall events are identified using inter-frame arrival gaps exceeding a fixed threshold.
+
+Network-level latency is measured independently using periodic ICMP probes between sender and receiver to capture RTT distributions and queueing dynamics. Transport-level throughput is measured for both WebRTC traffic and BBRv3 TCP flows.
+
+Separating application-level and network-level measurements allows the analysis to distinguish bandwidth preservation from delay-induced Quality of Experience degradation.
+
+Results
+Throughput Behavior
+
+Across all experimental scenarios, the WebRTC stream maintains a stable operating throughput near its target rate. Under baseline conditions, the WebRTC flow achieves approximately 1.04 Mbps. When competing with BBRv3 TCP cross-traffic saturating the 40 Mbps bottleneck, WebRTC throughput remains effectively unchanged at approximately 1.01 Mbps. This indicates that BBRv3 does not starve low-rate real-time traffic, even under full link utilization.
+
+The BBRv3 TCP flow captures the majority of excess bandwidth, achieving approximately 37–38 Mbps during contention. Jain’s fairness index between the WebRTC stream and the BBRv3 flow remains low (≈0.52–0.53), reflecting extreme rate asymmetry. This asymmetry is expected given the inelastic, application-limited sending rate of WebRTC and does not by itself indicate starvation.
+
+Latency and Queueing Effects
+
+Despite preserved throughput, the presence of BBRv3 cross-traffic induces significant queue buildup at the FIFO bottleneck. Round-trip latency increases from a near-zero baseline to a distribution centered around 70–80 ms during contention, with long-tail excursions exceeding 150 ms. Under lossy conditions, RTT variance increases further.
+
+This latency inflation occurs without a corresponding collapse in throughput, demonstrating that BBRv3’s coexistence improvements primarily address bandwidth sharing and do not prevent delay accumulation in legacy FIFO queues.
+
+Application-Level Quality of Experience
+
+Average frame rate remains close to the 60 FPS target across all scenarios, with no sustained frame rate collapse observed. However, increased latency and jitter lead to delivery irregularity, which manifests as increased stall duration.
+
+Stall amplification is quantified using the Harm Factor. Relative to the baseline, stall duration increases by approximately 1.2× under wired contention and 1.5× under lossy contention. These increases indicate degraded smoothness despite stable average bitrate and frame rate.
+
+Impact of Packet Loss
+
+Under modest random packet loss, WebRTC throughput decreases by approximately 16 percent, while BBRv3 behavior remains largely unchanged. This asymmetry arises from WebRTC’s conservative loss response, which prioritizes reliability and delay stability, while BBRv3 continues aggressive probing. Loss therefore amplifies coexistence imbalance and worsens application-level performance even when bandwidth remains available.
+
+Key Observation
+
+The results show a clear disconnect between throughput preservation and acceptable real-time performance. BBRv3 avoids throughput starvation but induces latency inflation and jitter that degrade Quality of Experience for WebRTC traffic over FIFO bottlenecks.
+
+Limitations
+Host-Side Processing Artifacts
+
+The WebRTC pipeline relies on CPU-based video encoding and software decoding. Looping the fixed-length video clip requires periodic seek operations that introduce deterministic stalls independent of network behavior. These artifacts add a constant noise floor to stall measurements. As a result, absolute stall duration cannot be interpreted as a purely network-induced effect, and stall metrics are evaluated comparatively rather than causally.
+
+Network Emulation Scope
+
+The bottleneck is implemented using Linux Traffic Control with static FIFO queueing and fixed bandwidth limits. This setup accurately models bufferbloat behavior but does not capture stochastic jitter, dynamic routing, or modern Active Queue Management commonly present in production networks. The observed latency profiles therefore represent controlled worst-case FIFO behavior rather than Internet-wide variability.
+
+Competition Model
+
+The experiments evaluate a single WebRTC stream competing with a single BBRv3 TCP flow. Real-world environments typically involve multiple concurrent flows using heterogeneous congestion control algorithms. While the single-flow scenario represents a worst-case contention case, it does not capture multiplexing effects that may partially mask or amplify coexistence behavior.
+
+Temporal Scope
+
+Experiments are limited to short-duration runs due to testbed resource constraints. Long-term dynamics, including BBRv3’s behavior over extended timescales and adaptive equilibrium changes, are not evaluated.
+
+Future Directions
+
+Future work should extend this evaluation along four primary dimensions:
+
+Queue Management: Evaluate coexistence under Active Queue Management schemes such as CoDel, PIE, or L4S-style DualQ to determine whether latency inflation can be mitigated without sacrificing throughput.
+
+Traffic Diversity: Introduce multiple concurrent real-time and bulk flows using heterogeneous congestion control algorithms to study multiplexed interactions and fairness under realistic residential access conditions.
+
+Application Adaptation: Investigate sender-side adaptations for real-time applications that explicitly account for delay variance and queue buildup rather than relying solely on loss-based or bandwidth-based signals.
+
+Hardware-Accelerated Media Pipelines: Replace CPU-based encoding and decoding with hardware-accelerated pipelines to remove host-side artifacts and enable more precise attribution of stalls to network behavior.

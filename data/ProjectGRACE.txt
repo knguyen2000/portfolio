@@ -1,0 +1,81 @@
+OVERVIEW Large Language Models (LLMs) exhibit strong linguistic competence but remain fundamentally unreliable in factual reasoning. A persistent failure mode is hallucination, where models generate fluent but unsupported or incorrect answers. This behavior is not accidental. Modern LLM training pipelines optimize for statistical likelihood, instruction compliance, and reward alignment, but do not optimize for truthfulness or calibrated uncertainty. As a result, when evidence is weak or missing, models are incentivized to guess rather than to abstain.
+
+Retrieval-Augmented Generation (RAG) was introduced to mitigate hallucination by grounding generation in external sources such as documents or knowledge graphs. However, standard RAG systems rely on a rigid execution pattern: fixed retrieval depth, mandatory generation, and optional but uniform verification. This design assumes that retrieval is always beneficial and that all queries require the same reasoning strategy. In practice, retrieval quality varies significantly. Some queries retrieve coherent and trustworthy evidence, while others return noisy, misleading, or irrelevant information. Conditioning generation on poor retrieval can degrade performance relative to closed-book generation. Additionally, uniform application of verification wastes computation on easy queries and fails to sufficiently scrutinize difficult ones.
+
+A further limitation of existing systems is the lack of principled abstention. Most RAG pipelines are designed to always answer. When refusal mechanisms exist, they are typically based on heuristic confidence thresholds that do not consider evidence structure or retrieval reliability. This leads to either excessive hallucination or overly conservative behavior without a clear optimization objective.
+
+These limitations indicate that retrieval-augmented reasoning is inherently a multi-decision process. For each query, the system must decide how much evidence to retrieve, how to generate an answer, whether verification is warranted, and whether answering is preferable to abstaining. These decisions are interdependent: deep retrieval is only useful if verification follows, and abstention is only rational when both retrieval and generation indicate high uncertainty. Treating these decisions independently or fixing them in advance leads to suboptimal reliability and inefficient computation.
+
+This project proposes GRACE (Graph Reasoning with Adaptive Correlated Equilibrium) to address this problem by reframing retrieval-augmented reasoning as a coordinated decision-making task under uncertainty. GRACE models retrieval, generation, and verification as cooperative agents whose actions are jointly selected rather than executed sequentially. Coordination is performed by a central mediator using a correlated equilibrium policy, which allows joint action selection conditioned on shared state information.
+
+The state information is derived from graph-structured retrieval. By operating over a knowledge graph, the system can extract structural signals such as node reliability, connectivity, relational coherence, and evidence diversity. These signals provide an estimate of evidence trustworthiness before committing to expensive reasoning steps. The signals are discretized into a compact state representation that enables tractable policy learning and fast inference.
+
+The mediator selects a joint action for all components based on expected utility. The utility function explicitly balances correctness, computational cost, and hallucination risk. Correct answers are rewarded, abstention receives a smaller positive reward, and computational actions incur costs. Incorrect answers are implicitly penalized by lost reward and incurred cost. This formulation makes abstention a rational and explicitly optimized outcome rather than a failure mode.
+
+The central research objective of this project is to determine whether state-conditioned, game-theoretic coordination can improve the effective reliability of retrieval-augmented LLM systems compared to static RAG pipelines and heuristic refusal mechanisms. Effectiveness is evaluated not only by accuracy, but by precision among answered queries, abstention behavior, and net utility under realistic computational constraints. The project aims to demonstrate that reliability improvements can be achieved through principled coordination and decision control, independent of model scale or prompt-level heuristics.
+
+METHODOLOGY GRACE is a retrieval-augmented reasoning framework that replaces static RAG pipelines with a state-dependent decision system. It models retrieval, generation, and verification as cooperative agents whose actions are jointly selected by a centralized policy derived from correlated equilibrium (CE).
+
+The core problem addressed is that standard RAG systems apply the same retrieval depth, generation strategy, and verification effort to all queries, regardless of evidence quality. This leads to hallucinations when retrieval is noisy and wasted computation when queries are easy. GRACE treats each query as a decision-making problem under uncertainty.
+
+The system consists of four components: Retriever, Generator, Verifier, and Mediator.
+
+The Retriever operates over a constructed knowledge graph. Its actions include shallow retrieval (local graph expansion), deep retrieval (multi-hop traversal), or skipping retrieval entirely. Each action has a different cost and reliability profile.
+
+The Generator produces answers conditioned on retrieved evidence or parametric knowledge. It can perform single-pass generation, self-consistency generation with multiple samples, parametric-only generation, or abstention.
+
+The Verifier checks whether generated answers are supported by retrieved evidence using an NLI classifier. Verification can be executed or skipped depending on policy decisions.
+
+The Mediator is the decision engine. It does not perform reasoning itself. Instead, it selects a joint action tuple for the Retriever, Generator, and Verifier. This selection is conditioned on structural reliability signals extracted from the knowledge graph and is governed by a learned CE policy.
+
+Before any heavy computation, GRACE performs a lightweight probing step. The query is entity-linked to a graph node. If linking fails, the system enters a “no-signal” state rather than crashing. If linking succeeds, a shallow traversal extracts continuous graph metrics: PageRank-based reliability, node degree, average path length, relational coherence, and entity-type diversity.
+
+These signals are discretized into a compact state space. Reliability-related signals are combined into a trust dimension, and coherence-related signals into a quality dimension. Each dimension is discretized into low, mid, or high, producing a total of nine possible states.
+
+Given the current state, the Mediator queries a policy table π(a|s), where each action a is a joint configuration across Retriever, Generator, and Verifier. The policy is derived from a cooperative game formulation in which all agents share a common utility function.
+
+The utility function rewards correct answers, gives smaller positive reward to abstention, penalizes incorrect answers implicitly by lost reward, and subtracts computational cost for each executed action. This explicitly encodes a preference for safe abstention over hallucination while discouraging unnecessary computation.
+
+The policy is learned offline through simulation. For each state-action pair, the system estimates expected utility by executing randomized policies and observing outcomes. Instead of a deterministic policy, GRACE uses a Quantal Response Equilibrium formulation, producing a stochastic policy that favors higher-utility actions while remaining robust to noise in value estimates.
+
+At inference time, execution is conditional. Only the components specified by the chosen joint action are activated. If verification fails or the policy selects abstention, the system outputs an explicit abstain token rather than a low-confidence answer.
+
+The architecture therefore converts retrieval-augmented reasoning into a controlled decision loop. Computation depth, verification strength, and refusal are all treated as rational actions selected based on estimated risk and evidence quality.
+
+Experimentally, GRACE is implemented using a lightweight setup to isolate methodological effects. A FLAN-T5-Base model performs generation, a RoBERTa-based NLI model performs verification, and graph traversal is implemented with bounded heuristic search. The policy is calibrated on a small subset and evaluated on held-out data.
+
+RESULTS
+The experimental results demonstrate that GRACE fundamentally changes the behavior of retrieval-augmented reasoning systems by prioritizing reliability over coverage through explicit decision control. When evaluated on the HotpotQA distractor split, GRACE exhibits substantially lower overall accuracy compared to static baselines, but significantly improves safety by reducing unsupported or hallucinated answers.
+
+The most important outcome is the separation between raw accuracy and effective reliability. While baseline systems answer more questions, many of those answers are incorrect due to noisy or misleading retrieval. GRACE answers fewer questions overall but achieves higher precision among the questions it does answer. This confirms that abstention, when used strategically, can act as an effective safety mechanism rather than a failure.
+
+Comparative analysis reveals that deterministic GraphRAG performs worse than closed-book generation in this setting. Retrieved subgraphs frequently contain distractors that contaminate generation, leading to lower accuracy than relying on parametric knowledge alone. GRACE detects these low-trust conditions using graph-derived signals and often chooses to abstain rather than propagate retrieval noise.
+
+The correlated equilibrium policy successfully learns coordinated behaviors. In sparse graph states with relatively clean evidence, GRACE selects aggressive strategies such as self-consistency generation with verification and achieves high-reward outcomes. In dense or noisy graph states, the policy shifts toward refusal-heavy strategies, minimizing the risk of hallucination. This demonstrates that the system internalizes the trade-offs encoded in the utility function and adapts its behavior based on structural evidence conditions.
+
+However, GRACE also exhibits extreme conservatism. The learned policy heavily favors abstention in many mid- and high-trust states, resulting in low recall. This behavior is not accidental but follows directly from the expected-utility optimization under uncertainty.
+
+LIMITATIONS
+
+The primary limitation of GRACE lies in the quality and discriminative power of its structural signals. PageRank-based reliability measures are heavily normalized, causing query entities to dominate and flattening meaningful differences among neighboring nodes. As a result, trust estimates often lack sufficient resolution to distinguish genuinely informative evidence from distractors.
+
+Retrieval noise further compounds this problem. In dense graph regions, heuristic traversal frequently surfaces semantically irrelevant but topologically central nodes. The mediator interprets these regions as high-risk due to inconsistent downstream outcomes, pushing the policy toward abstention even when valid answers exist.
+
+The utility function introduces an additional constraint. High penalties for incorrect answers combined with non-trivial verification costs create an incentive landscape where abstention dominates most states. This produces a sharp utility cliff between answering and refusing, limiting exploration of intermediate strategies. While rational under the defined reward structure, this reduces practical usefulness.
+
+Another limitation is that the policy operates over a coarse discretized state space. Compressing rich graph structure into a small number of bins improves tractability but discards fine-grained semantic distinctions that could support more nuanced decisions.
+
+Finally, GRACE does not attempt to repair retrieval failures. When retrieval quality is poor, abstention is often the only safe action available. This limits recall in scenarios where better retrieval or re-ranking could recover valid evidence.
+
+FUTURE DIRECTIONS
+
+Future work should prioritize improving signal fidelity rather than modifying the coordination mechanism itself. More expressive graph signals, such as hierarchical centrality measures, semantic density metrics, or relation-aware reliability scores, could provide the mediator with sharper distinctions between trustworthy and misleading evidence.
+
+Refining the utility function is another critical direction. Introducing graded rewards for partially correct answers or soft penalties for near-misses could smooth the incentive landscape and reduce excessive conservatism. Dynamic cost modeling, where verification cost depends on context rather than being fixed, may also encourage more balanced strategies.
+
+Expanding the state representation without sacrificing tractability is a further opportunity. Learning compact latent states from graph features rather than manually discretizing signals could preserve more information while remaining compatible with policy learning.
+
+From a system perspective, integrating retrieval repair mechanisms such as re-ranking, adaptive traversal width, or semantic filtering would allow GRACE to act beyond abstention when evidence is initially poor.
+
+More broadly, the results suggest that game-theoretic coordination is not the bottleneck. The mediator behaves rationally given its inputs and incentives. Improving perception and calibration is therefore the key to unlocking higher recall without sacrificing safety. This positions GRACE as a foundation for future reliability-focused reasoning systems rather than a finished solution.
+
