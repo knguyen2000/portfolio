@@ -1,8 +1,6 @@
 .streamlit
-working_model.txt
 check_*.py
 verify_trace.py
-list_models_simple.py
 env/
 **/env/
 __pycache__/
