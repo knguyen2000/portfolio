@@ -112,7 +112,7 @@ LOCATIONS = {
     "Washington DC": [-77.0369, 38.9072],
     "Maryland": [-76.4922, 38.9784], # Annapolis
     "New York": [-74.0060, 40.7128], # NYC
-    "New Jersey": [-74.0431, 40.7178], # Jersey City
+    "New Jersey": [-74.1724, 40.7357], # Newark
     "Massachusetts": [-71.0589, 42.3601], # Boston
     "Florida": [-80.1918, 25.7617], # Miami
     "California": [-122.4194, 37.7749], # San Francisco
@@ -307,7 +307,6 @@ if event.selection and "objects" in event.selection:
         chapter_idx = LOCATION_TO_CHAPTER.get(location_name)
         
         if chapter_idx is not None:             
-             # Inject JS to smooth scroll to the target chapter
              script = f"""
                 <script>
                     function scrollToChapter() {{
