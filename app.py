@@ -91,7 +91,7 @@ with st.sidebar:
     """, unsafe_allow_html=True)
     
     st.markdown("<br>", unsafe_allow_html=True)
-    st.page_link("pages/about_me.py", label="About Me", use_container_width=True)
+    st.page_link("pages/about.py", label="About Me", use_container_width=True)
 
     # Spacer
     st.markdown("<br>" * 1, unsafe_allow_html=True)
