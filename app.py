@@ -1,6 +1,8 @@
 import streamlit as st
 from st_click_detector import click_detector
 import os
+import json
+import re
 
 # --- LOGIC IMPORT ---
 from trace_engine import load_corpus, find_maximal_matches
@@ -260,11 +262,64 @@ try:
                     # Retrieve prompt
                     prompt_container = st.session_state.messages[-1]
                     prompt_text = prompt_container["content"]
+                    
+                    log_event("Analysing Context...")
+                    
+                    # Lightweight index for Router
+                    doc_index = {}
+                    for name, content in docs.items():
+                        L = len(content)
+                        if L < 2000:
+                            preview = content
+                        else:
+                            start = content[:600]
+                            mid_idx = L // 2
+                            mid = content[mid_idx-300 : mid_idx+300]
+                            end = content[-600:]
+                            preview = f"{start}\n...\n{mid}\n...\n{end}"
+                        doc_index[name] = preview
+
+                    index_str = "\n".join([f"- {name}: {preview}" for name, preview in doc_index.items()])
+                    
+                    router_prompt = f"""
+                    You are a data librarian.
+                    User Query: "{prompt_text}"
+                    
+                    Available Documents:
+                    {index_str}
+                    
+                    Task: Return a JSON list of filenames that are relevant to the query.
+                    Example: ["file1.txt", "file2.pdf"]
+                    Return ONLY the JSON list. If no specific document is needed, return all filenames.
+                    """
+                    
+                    # Fast Router Call
+                    router_chat = client.chats.create(model=MODEL_ID)
+                    router_response = router_chat.send_message(router_prompt)
+                    
+                    selected_files = list(docs.keys())
+                    try:
+                        # Extract JSON
+                        json_match = re.search(r'\[.*\]', router_response.text, re.DOTALL)
+                        if json_match:
+                            parsed_files = json.loads(json_match.group(0))
+                            # Validate
+                            valid_files = [f for f in parsed_files if f in docs]
+                            if valid_files:
+                                selected_files = valid_files
+                        log_event(f"Router selected: {selected_files}")
+                    except Exception as e:
+                        log_event(f"Router Parse Error: {e}. using all docs.")
+                        selected_files = list(docs.keys())
+                        
                     log_event("Generating response...")
                     
-                    # Define System Prompt & Context
-                    system_prompt_text = f"You are a professional portfolio assistant.\nKnowledge Base: {full_context}\n\n1. Answer the user's question directly and naturally.\n2. You MUST use exact, verbatim phrases from the Knowledge Base to support your claims.\n3. Do NOT use markdown bold (**) or italics or any marks to specify which part are from knowledge. The system extracts and highlights these phrases automatically.\n4. Do not just dump raw text; synthesize the answer."
-
+                    # Construct Context from Selected Files
+                    relevant_context = "\n\n".join([f"--- SOURCE: {name} ---\n{docs[name]}" for name in selected_files])
+                    
+                    # System Prompt & Context
+                    system_prompt_text = f"You are a professional portfolio assistant.\nKnowledge Base: {relevant_context}\n\n1. Answer the user's question directly and naturally.\n2. You MUST use exact, verbatim phrases from the Knowledge Base to support your claims.\n3. Do NOT use markdown bold (**) or italics or any marks to specify which part are from knowledge. The system extracts and highlights these phrases automatically.\n4. Do not just dump raw text; synthesize the answer"
+                    
                     # Construct History
                     formatted_history = []
                     for m in st.session_state.messages[:-1]:
@@ -316,11 +371,27 @@ try:
                 highlight_phrase = st.session_state.get("highlight_phrase")
                 
                 if highlight_phrase:
-                     highlighted_content = content.replace(
-                         highlight_phrase, 
-                         f"<span style='background-color: #d4edda; color: #155724; padding: 2px; border-radius: 3px;'>{highlight_phrase}</span>"
-                     )
-                     st.markdown(highlighted_content, unsafe_allow_html=True)
+                     # Find location of the match to create a snippet
+                     idx = content.find(highlight_phrase)
+                     if idx != -1:
+                         # Radius of context (1000 chars)
+                         start_idx = max(0, idx - 1000)
+                         end_idx = min(len(content), idx + len(highlight_phrase) + 1000)
+                         
+                         snippet = content[start_idx:end_idx]
+                         
+                         # Add ellipses
+                         if start_idx > 0: snippet = "... " + snippet
+                         if end_idx < len(content): snippet = snippet + " ..."
+                         
+                         highlighted_content = snippet.replace(
+                             highlight_phrase, 
+                             f"<span style='background-color: #d4edda; color: #155724; padding: 2px; border-radius: 3px; font-weight: bold;'>{highlight_phrase}</span>"
+                         )
+                         st.markdown(highlighted_content, unsafe_allow_html=True)
+                     else:
+                         st.warning("Match location lost. Showing full text.")
+                         st.markdown(content)
                 else:
                      st.markdown(content)
 

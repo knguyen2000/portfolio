@@ -4,7 +4,7 @@ Verifiable AI built with Python. I used a Python framework called Streamlit whic
    - Before the AI answers, my system injects my resume and project data into its context window.
    - AI is instructed to answer only using facts found in that data.
 
-To prevent "hallucinations" (AI making things up) and ensure explainability, I built a custom "Trace Engine".
+To prevent hallucinations I built a custom "Trace Engine".
    - After the AI generates text, my engine runs a search algorithm.
    - It compares the AI's words against my original documents.
    - If it finds an exact match, it highlights the text.
