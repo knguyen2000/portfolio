@@ -65,18 +65,18 @@ with st.sidebar:
     <div style="text-align: center; margin-top: -10px;">
         <h2 style="margin-bottom: 5px;">Khuong Nguyen</h2>
         <p style="font-weight: bold; margin-bottom: 5px;">Master CS @ UVA</p>
-        <p style="font-style: italic; font-size: 0.9em; color: #555;">Research Interest: NLP, LLM, and Trustworthy AI</p>
+        <p style="font-style: italic; font-size: 0.9em; color: inherit; opacity: 0.7;">Research Interest: NLP, LLM, and Trustworthy AI</p>
         <div style="display: flex; justify-content: center; gap: 20px; margin-top: 15px;">
             <a href="https://www.linkedin.com/in/khuongng/" target="_blank" style="text-decoration: none; color: #0077b5; font-size: 28px;">
                 <i class="fa-brands fa-linkedin"></i>
             </a>
-            <a href="https://github.com/knguyen2000" target="_blank" style="text-decoration: none; color: #333; font-size: 28px;">
+            <a href="https://github.com/knguyen2000" target="_blank" style="text-decoration: none; color: inherit; font-size: 28px;">
                 <i class="fa-brands fa-github"></i>
             </a>
             <a href="mailto:khuongnguyen211000@gmail.com" style="text-decoration: none; color: #ea4335; font-size: 28px;">
                 <i class="fa-solid fa-envelope"></i>
             </a>
-            <a href="https://drive.google.com/file/d/1ZFrhWioHuzSf3SUmp-l_wn0aed4d86vd/view?usp=sharing" target="_blank" style="text-decoration: none; color: #555; font-size: 28px;">
+            <a href="https://drive.google.com/file/d/1ZFrhWioHuzSf3SUmp-l_wn0aed4d86vd/view?usp=sharing" target="_blank" style="text-decoration: none; color: inherit; font-size: 28px;">
                 <i class="fa-solid fa-address-card"></i>
             </a>
         </div>
