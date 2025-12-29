@@ -101,8 +101,8 @@ LOCATIONS = {
     "Estonia": [24.7536, 59.4370], # Tallinn
     "Hungary": [19.0402, 47.4979], # Budapest
     "Denmark": [12.5683, 55.6761], # Copenhagen
-    "Germany": [13.4050, 52.5200], # Berlin
-    "Sweden": [18.0686, 59.3293], # Stockholm
+    "Germany": [8.6821, 50.1109], # Frankfurt
+    "Sweden": [12.6945, 56.0465], # Helsingborg
     "Austria": [16.3738, 48.2082], # Vienna
     "Italy": [12.4964, 41.9028], # Rome
     "France": [2.3522, 48.8566], # Paris
@@ -113,6 +113,7 @@ LOCATIONS = {
     "Maryland": [-76.4922, 38.9784], # Annapolis
     "New York": [-74.0060, 40.7128], # NYC
     "New Jersey": [-74.1724, 40.7357], # Newark
+    "Pennsylvania": [-75.1652, 39.9526], # Philadelphia
     "Massachusetts": [-71.0589, 42.3601], # Boston
     "Florida": [-80.1918, 25.7617], # Miami
     "California": [-122.4194, 37.7749], # San Francisco
@@ -245,7 +246,7 @@ LOCATION_TO_CHAPTER = {
     "Thailand": 4, "Malaysia": 4, "South Korea": 4, "Sweden": 4, 
     "Austria": 4, "Italy": 4, "France": 4, 
     "Virginia": 5, "Washington DC": 5, "Maryland": 5, "New York": 5,
-    "New Jersey": 5, "Massachusetts": 5, "Florida": 5, "California": 5
+    "New Jersey": 5, "Pennsylvania": 5, "Massachusetts": 5, "Florida": 5, "California": 5
 }
 
 # Container for the thread line
