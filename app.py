@@ -8,6 +8,13 @@ from trace_engine import load_corpus, find_maximal_matches
 # --- CONFIGURATION ---
 st.set_page_config(layout="wide", page_title="Meet Khuong", page_icon="data/panda_eat.png")
 
+# --- HIDE DEFAULT SIDEBAR IMMEDIATELY (MIGHT STILL APPEAR ONCE LOADED BUT TBD IN FUTURE) ---
+st.markdown("""
+    <style>
+        [data-testid="stSidebarNav"] {display: none;}
+    </style>
+""", unsafe_allow_html=True)
+
 
 # --- CSS STYLING FOR HIGHLIGHTS ---
 st.markdown("""
@@ -83,10 +90,13 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
     
-    # Spacer
-    st.markdown("<br>" * 3, unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.page_link("pages/about-me.py", label="About Me", use_container_width=True)
 
-    # Collapsible Admin Section (Bottom)
+    # Spacer
+    st.markdown("<br>" * 1, unsafe_allow_html=True)
+
+    # Collapsible Admin Section
     with st.expander("Admin Access"):
         passcode = st.text_input("Passcode", type="password")
         
