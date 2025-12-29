@@ -330,3 +330,7 @@ except Exception as main_e:
     st.error(f"Critical Application Error: {main_e}")
     st.exception(main_e)
 
+# --- LET IT SNOW ---
+if "has_snowed" not in st.session_state:
+    st.snow()
+    st.session_state.has_snowed = True

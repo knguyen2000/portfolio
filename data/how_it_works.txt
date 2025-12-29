@@ -1,53 +1,39 @@
 HOW THIS PORTFOLIO IS BUILT
 
-PART 1: HIGH LEVEL OVERVIEW
-This is a Verifiable AI Application built with Python. 
-
-1. INTERFACE (Streamlit)
-   I used a Python framework called Streamlit which converts standard Python code into this interactive web app. It handles the chat interface and document rendering dynamically.
-
-2. BRAIN (Google Gemini)
-   When you ask a question, your message is sent to Google Gemini (specifically the Gemma 2 27B model).
+Verifiable AI built with Python. I used a Python framework called Streamlit which converts standard Python code into this interactive web app. It handles the chat interface and document rendering dynamically. When you ask a question, your message is sent to Google Gemini (specifically the Gemma 2 27B model).
    - Before the AI answers, my system injects my resume and project data into its context window.
-   - The AI is instructed to answer only using facts found in that data.
+   - AI is instructed to answer only using facts found in that data.
 
-3. TRACE ENGINE
-   To prevent "hallucinations" (AI making things up) and ensure explainability, I built a custom "Trace Engine".
+To prevent "hallucinations" (AI making things up) and ensure explainability, I built a custom "Trace Engine".
    - After the AI generates text, my engine runs a search algorithm.
    - It compares the AI's words against my original documents.
    - If it finds an exact match, it highlights the text.
    - Clicking a highlight proves the text is grounded in reality.
 
-
-PART 2: TECHNICAL DEEP DIVE
-This application implements a Retrieval-Augmented Generation (RAG) pattern with a strict Post-Generation Verification layer.
+Implements RAG pattern with a strict Post-Generation Verification layer.
 
 System Architecture
- - Runtime: Python 3.11+ stateless implementation.
- - Frontend: Streamlit Custom Component architecture.
- - LLM Backend: Google GenAI SDK (accessing `models/gemma-3-27b-it` via API).
-   Why Gemma 3 27B?
-   We chose this specific model as the optimal trade-off between Reasoning Density and Inference Efficiency:
-   1. Instruction Adherence: The 27B parameter scale provides sufficient capacity to strictly follow rigid negative constraints, which smaller <10B models often fail at.
-   2. Verbatim Fidelity: A key requirement for the Trace Engine is "Exact Matching". Smaller models tend to paraphrase inputs, breaking verification. Gemma 3 27B maintains high fidelity to source text while still synthesizing coherent answers.
-   3. Open Weight Ethos: Using an open model series aligns with the project's core philosophy of transparency and verifiability.
-   4. Sufficient rate limits without additional costs: Requests per Day (RPD): 14,400, Requests per Minute (RPM): 30, Tokens per Minute (TPM): 15,000 
- - Deployment: Containerized execution on Streamlit Cloud (Debian-based).
+ - Runtime: Python 3.11+ stateless implementation
+ - Frontend: Streamlit Custom Component architecture
+ - LLM Backend: Google GenAI SDK (`models/gemma-3-27b-it` via API)
+   I choose this model as the optimal trade-off between Reasoning Density and Inference Efficiency:
+   - 27B parameter scale provides sufficient capacity to strictly follow rigid negative constraints
+   - Smaller models tend to paraphrase inputs, breaking verification. This model maintains high fidelity to source text while still synthesizing coherent answers.
+   - Sufficient rate limits at 0 costs RPD: 14.4K, RPM: 30, TPM: 15K (only suffice 2 requests/min now due to RAG)
+ - Deployment: Streamlit Cloud
 
-Trace Engine (Algorithm)
-The core is the verification system located in `trace_engine.py`. It does NOT rely on embeddings or semantic similarity, which can be fuzzy. Instead, it enforces Verbatim Provenance.
-
+Trace Engine
+Core is the verification system located in `trace_engine.py`. NOT rely on embeddings or semantic similarity (fuzzy)
  - Extraction: PDF/DOCX files are ingested using `PyPDF2`/`python-docx` and normalized (whitespace collapsing) into a strictly clean text corpus.
  - Algorithm: The engine implements a Greedy Maximal Exact Match strategy (an optimized variation of well-known Longest Common Substring problem):
-    1. Iterates through the LLM's generated response character by character.
-    2. At each position `i`, it searches the entire Corpus `C` for the longest substring `S` starting at `i`.
-    3. Heuristics: Enforces word boundaries to prevent partial-word matching (e.g., matching "ring" inside "engineering").
-    4. Injection: If a match `|S| >= threshold` (e.g., 15 chars) is found, the engine injects an HTML anchor tag wrapping that span: `<a id="source_doc:::quote">...</a>`.
+    - Iterates through the LLM's generated response character by character.
+    - At each position `i`, it searches the entire Corpus `C` for the longest substring `S` starting at `i`.
+    - Heuristics: Enforces word boundaries to prevent partial-word matching (e.g., matching "ring" inside "engineering").
+    - If a match `|S| >= threshold` (e.g., 15 chars) is found, the engine injects an HTML anchor tag wrapping that span: `<a id="source_doc:::quote">...</a>`.
 
-User Interface Engineering
- - State Management: Leveraging `st.session_state` to maintain chat history across re-runs.
- - Event Loop Handling: Streamlit is declarative and re-runs the entire script on interaction. To handle the "Click-to-Open-Document" feature, we implement a custom Event Debouncing pattern. We track `clicked_states` to differentiate between a stale click signal and a fresh user intent, triggering `st.rerun()` only on state transitions.
- - CSS Injection: Heavy usage of `st.markdown(unsafe_allow_html=True)` to override Streamlit's shadow DOM styles (`data-testid` selectors), aggressively stripping the default toolbar and branding for a proprietary look.
+UI
+ - Leveraging `st.session_state` to maintain chat history across re-runs.
+ - Streamlit is declarative and re-runs the entire script on interaction. To handle the "Click-to-Open-Document" feature, we implement a custom Event Debouncing pattern. We track `clicked_states` to differentiate between a stale click signal and a fresh user intent, triggering `st.rerun()` only on state transitions.
 
 Deployment
  - Storage: The application is stateless. User uploads during a session are stored in the ephemeral container filesystem (`/mount/src/...`) and are wiped upon session termination.

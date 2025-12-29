@@ -1,6 +1,6 @@
-OVERVIEW Large Language Models (LLMs) exhibit strong linguistic competence but remain fundamentally unreliable in factual reasoning. A persistent failure mode is hallucination, where models generate fluent but unsupported or incorrect answers. This behavior is not accidental. Modern LLM training pipelines optimize for statistical likelihood, instruction compliance, and reward alignment, but do not optimize for truthfulness or calibrated uncertainty. As a result, when evidence is weak or missing, models are incentivized to guess rather than to abstain.
+LLMs exhibit strong linguistic competence but remain fundamentally unreliable in factual reasoning. A persistent failure mode is hallucination, where models generate fluent but unsupported or incorrect answers. This behavior is not accidental. Modern LLM training pipelines optimize for statistical likelihood, instruction compliance, and reward alignment, but do not optimize for truthfulness or calibrated uncertainty. As a result, when evidence is weak or missing, models are incentivized to guess rather than to abstain.
 
-Retrieval-Augmented Generation (RAG) was introduced to mitigate hallucination by grounding generation in external sources such as documents or knowledge graphs. However, standard RAG systems rely on a rigid execution pattern: fixed retrieval depth, mandatory generation, and optional but uniform verification. This design assumes that retrieval is always beneficial and that all queries require the same reasoning strategy. In practice, retrieval quality varies significantly. Some queries retrieve coherent and trustworthy evidence, while others return noisy, misleading, or irrelevant information. Conditioning generation on poor retrieval can degrade performance relative to closed-book generation. Additionally, uniform application of verification wastes computation on easy queries and fails to sufficiently scrutinize difficult ones.
+RAG was introduced to mitigate hallucination by grounding generation in external sources such as documents or knowledge graphs. However, standard RAG systems rely on a rigid execution pattern: fixed retrieval depth, mandatory generation, and optional but uniform verification. This design assumes that retrieval is always beneficial and that all queries require the same reasoning strategy. In practice, retrieval quality varies significantly. Some queries retrieve coherent and trustworthy evidence, while others return noisy, misleading, or irrelevant information. Conditioning generation on poor retrieval can degrade performance relative to closed-book generation. Additionally, uniform application of verification wastes computation on easy queries and fails to sufficiently scrutinize difficult ones.
 
 A further limitation of existing systems is the lack of principled abstention. Most RAG pipelines are designed to always answer. When refusal mechanisms exist, they are typically based on heuristic confidence thresholds that do not consider evidence structure or retrieval reliability. This leads to either excessive hallucination or overly conservative behavior without a clear optimization objective.
 
@@ -14,11 +14,7 @@ The mediator selects a joint action for all components based on expected utility
 
 The central research objective of this project is to determine whether state-conditioned, game-theoretic coordination can improve the effective reliability of retrieval-augmented LLM systems compared to static RAG pipelines and heuristic refusal mechanisms. Effectiveness is evaluated not only by accuracy, but by precision among answered queries, abstention behavior, and net utility under realistic computational constraints. The project aims to demonstrate that reliability improvements can be achieved through principled coordination and decision control, independent of model scale or prompt-level heuristics.
 
-METHODOLOGY GRACE is a retrieval-augmented reasoning framework that replaces static RAG pipelines with a state-dependent decision system. It models retrieval, generation, and verification as cooperative agents whose actions are jointly selected by a centralized policy derived from correlated equilibrium (CE).
-
-The core problem addressed is that standard RAG systems apply the same retrieval depth, generation strategy, and verification effort to all queries, regardless of evidence quality. This leads to hallucinations when retrieval is noisy and wasted computation when queries are easy. GRACE treats each query as a decision-making problem under uncertainty.
-
-The system consists of four components: Retriever, Generator, Verifier, and Mediator.
+The system consists of four components
 
 The Retriever operates over a constructed knowledge graph. Its actions include shallow retrieval (local graph expansion), deep retrieval (multi-hop traversal), or skipping retrieval entirely. Each action has a different cost and reliability profile.
 
@@ -56,7 +52,6 @@ The correlated equilibrium policy successfully learns coordinated behaviors. In 
 However, GRACE also exhibits extreme conservatism. The learned policy heavily favors abstention in many mid- and high-trust states, resulting in low recall. This behavior is not accidental but follows directly from the expected-utility optimization under uncertainty.
 
 LIMITATIONS
-
 The primary limitation of GRACE lies in the quality and discriminative power of its structural signals. PageRank-based reliability measures are heavily normalized, causing query entities to dominate and flattening meaningful differences among neighboring nodes. As a result, trust estimates often lack sufficient resolution to distinguish genuinely informative evidence from distractors.
 
 Retrieval noise further compounds this problem. In dense graph regions, heuristic traversal frequently surfaces semantically irrelevant but topologically central nodes. The mediator interprets these regions as high-risk due to inconsistent downstream outcomes, pushing the policy toward abstention even when valid answers exist.
@@ -66,16 +61,4 @@ The utility function introduces an additional constraint. High penalties for inc
 Another limitation is that the policy operates over a coarse discretized state space. Compressing rich graph structure into a small number of bins improves tractability but discards fine-grained semantic distinctions that could support more nuanced decisions.
 
 Finally, GRACE does not attempt to repair retrieval failures. When retrieval quality is poor, abstention is often the only safe action available. This limits recall in scenarios where better retrieval or re-ranking could recover valid evidence.
-
-FUTURE DIRECTIONS
-
-Future work should prioritize improving signal fidelity rather than modifying the coordination mechanism itself. More expressive graph signals, such as hierarchical centrality measures, semantic density metrics, or relation-aware reliability scores, could provide the mediator with sharper distinctions between trustworthy and misleading evidence.
-
-Refining the utility function is another critical direction. Introducing graded rewards for partially correct answers or soft penalties for near-misses could smooth the incentive landscape and reduce excessive conservatism. Dynamic cost modeling, where verification cost depends on context rather than being fixed, may also encourage more balanced strategies.
-
-Expanding the state representation without sacrificing tractability is a further opportunity. Learning compact latent states from graph features rather than manually discretizing signals could preserve more information while remaining compatible with policy learning.
-
-From a system perspective, integrating retrieval repair mechanisms such as re-ranking, adaptive traversal width, or semantic filtering would allow GRACE to act beyond abstention when evidence is initially poor.
-
-More broadly, the results suggest that game-theoretic coordination is not the bottleneck. The mediator behaves rationally given its inputs and incentives. Improving perception and calibration is therefore the key to unlocking higher recall without sacrificing safety. This positions GRACE as a foundation for future reliability-focused reasoning systems rather than a finished solution.
 
