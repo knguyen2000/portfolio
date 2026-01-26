@@ -70,6 +70,8 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 if "view_doc" not in st.session_state:
     st.session_state.view_doc = None
+if "verify_enabled" not in st.session_state:
+    st.session_state.verify_enabled = False
 
 # --- ADMIN UPLOAD ---
 # Just temporal for testing, permanent upload is TBD
@@ -183,7 +185,18 @@ def log_event(msg):
 
 try:
     st.markdown("<h1 class='main-header'>Hey there! Ask me anything about Khuong</h1>", unsafe_allow_html=True)
-    st.markdown("<div style='text-align: center; margin-bottom: 20px;'>Click <b>blue highlights</b> to verify the source</div>", unsafe_allow_html=True)
+    
+    # --- VERIFY TOGGLE ---
+    _, col_center, _ = st.columns([1, 1, 1])
+    with col_center:
+        btn_label = "✅ Verify ON" if st.session_state.verify_enabled else "🔍 Verify Sources"
+        btn_type = "primary" if st.session_state.verify_enabled else "secondary"
+        if st.button(btn_label, type=btn_type, use_container_width=True):
+            st.session_state.verify_enabled = not st.session_state.verify_enabled
+            st.rerun()
+        
+        if st.session_state.verify_enabled:
+            st.markdown("<p style='text-align: center; color: gray; font-size: 0.85em;'><i>In your next prompt, click highlighted text to see source (might take a while)</i></p>", unsafe_allow_html=True)
 
     # Dynamic Column Layout
     # If a document is open, split screen [3, 2].
@@ -246,51 +259,54 @@ try:
                     
                     log_event("Analysing Context...")
                     
-                    # Lightweight index for Router
-                    doc_index = {}
-                    for name, content in docs.items():
-                        L = len(content)
-                        if L < 2000:
-                            preview = content
-                        else:
-                            start = content[:600]
-                            mid_idx = L // 2
-                            mid = content[mid_idx-300 : mid_idx+300]
-                            end = content[-600:]
-                            preview = f"{start}\n...\n{mid}\n...\n{end}"
-                        doc_index[name] = preview
+                    # Skip router when verify disabled for speed
+                    if st.session_state.verify_enabled:
+                        # Lightweight index for Router
+                        doc_index = {}
+                        for name, content in docs.items():
+                            L = len(content)
+                            if L < 2000:
+                                preview = content
+                            else:
+                                start = content[:600]
+                                mid_idx = L // 2
+                                mid = content[mid_idx-300 : mid_idx+300]
+                                end = content[-600:]
+                                preview = f"{start}\n...\n{mid}\n...\n{end}"
+                            doc_index[name] = preview
 
-                    index_str = "\n".join([f"- {name}: {preview}" for name, preview in doc_index.items()])
-                    
-                    router_prompt = f"""
-                    You are a data librarian.
-                    User Query: "{prompt_text}"
-                    
-                    Available Documents:
-                    {index_str}
-                    
-                    Task: Return a JSON list of filenames that are relevant to the query.
-                    Example: ["file1.txt", "file2.pdf"]
-                    Return ONLY the JSON list. If no specific document is needed, return all filenames.
-                    """
-                    
-                    # Fast Router Call
-                    router_chat = client.chats.create(model=MODEL_ID)
-                    router_response = router_chat.send_message(router_prompt)
-                    
-                    selected_files = list(docs.keys())
-                    try:
-                        # Extract JSON
-                        json_match = re.search(r'\[.*\]', router_response.text, re.DOTALL)
-                        if json_match:
-                            parsed_files = json.loads(json_match.group(0))
-                            # Validate
-                            valid_files = [f for f in parsed_files if f in docs]
-                            if valid_files:
-                                selected_files = valid_files
-                        log_event(f"Router selected: {selected_files}")
-                    except Exception as e:
-                        log_event(f"Router Parse Error: {e}. using all docs.")
+                        index_str = "\n".join([f"- {name}: {preview}" for name, preview in doc_index.items()])
+                        
+                        router_prompt = f"""
+                        You are a data librarian.
+                        User Query: "{prompt_text}"
+                        
+                        Available Documents:
+                        {index_str}
+                        
+                        Task: Return a JSON list of filenames that are relevant to the query.
+                        Example: ["file1.txt", "file2.pdf"]
+                        Return ONLY the JSON list. If no specific document is needed, return all filenames.
+                        """
+                        
+                        router_chat = client.chats.create(model=MODEL_ID)
+                        router_response = router_chat.send_message(router_prompt)
+                        
+                        selected_files = list(docs.keys())
+                        try:
+                            json_match = re.search(r'\[.*\]', router_response.text, re.DOTALL)
+                            if json_match:
+                                parsed_files = json.loads(json_match.group(0))
+                                valid_files = [f for f in parsed_files if f in docs]
+                                if valid_files:
+                                    selected_files = valid_files
+                            log_event(f"Router selected: {selected_files}")
+                        except Exception as e:
+                            log_event(f"Router Parse Error: {e}. using all docs.")
+                            selected_files = list(docs.keys())
+                    else:
+                        # Fast path: skip router
+                        log_event("Verify OFF - skipping router for speed")
                         selected_files = list(docs.keys())
                         
                     log_event("Generating response...")
@@ -318,7 +334,11 @@ try:
                     response = chat.send_message(final_prompt)
                     log_event("Response received")
                     
-                    traced_html = find_maximal_matches(response.text, docs)
+                    # Skip trace engine when verify disabled
+                    if st.session_state.verify_enabled:
+                        traced_html = find_maximal_matches(response.text, docs)
+                    else:
+                        traced_html = None
                     
                     st.session_state.messages.append({
                         "role": "assistant", 
