@@ -242,7 +242,7 @@ if current_project:
         st.error(f"Project file '{current_project}' not found.")
         
 else:
-    st.title("💡 My Research & Projects")
+    st.title("🛋️ My reading corner")
     
     intro_css = """
     <style>
@@ -278,6 +278,9 @@ else:
             Some projects here will remain incomplete.<br>
             Some ideas will turn out to be wrong.<br>
             That’s part of the process, and I’m comfortable leaving it visible.
+        </p>
+        <p>
+            This is a work in progress. More to come...
         </p>
     </div>
     """, unsafe_allow_html=True)
