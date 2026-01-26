@@ -172,10 +172,10 @@ if not st.session_state.about_intro_closed:
     <!-- Modal -->
     <div class="about-modal">
         <video controls autoplay muted playsinline>
-          <source src="https://github.com/knguyen2000/portfolio/blob/main/static/AboutMe.mp4" type="video/mp4" />
-          <source src="/app/static/AboutMe.mp4" type="video/mp4" />
-          <source src="app/static/AboutMe.mp4" type="video/mp4" />
-          <source src="static/AboutMe.mp4" type="video/mp4" />
+          <source src="https://github.com/knguyen2000/portfolio/raw/main/static/AboutMe.mp4" type="video/mp4" />
+        #   <source src="/app/static/AboutMe.mp4" type="video/mp4" />
+        #   <source src="app/static/AboutMe.mp4" type="video/mp4" />
+        #   <source src="static/AboutMe.mp4" type="video/mp4" />
           <p>Your browser does not support the video tag.</p>
         </video>
     </div>
