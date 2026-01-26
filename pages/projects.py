@@ -6,7 +6,7 @@ import html
 import base64
 import re
 
-st.set_page_config(layout="wide", page_title="Projects", page_icon="💡")
+st.set_page_config(layout="wide", page_title="Projects", page_icon="🛋️")
 
 # --- HIDE DEFAULT SIDEBAR ---
 st.markdown("""
@@ -279,7 +279,7 @@ else:
             Some ideas will turn out to be wrong.<br>
             That’s part of the process, and I’m comfortable leaving it visible.
         </p>
-        <p>
+        <p style="font-weight: bold; color: red; letter-spacing: 0.5px; border-left: 3px solid red; padding-left: 10px;">
             This is a work in progress. More to come...
         </p>
     </div>
