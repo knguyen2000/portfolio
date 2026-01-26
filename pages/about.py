@@ -94,23 +94,6 @@ if "about_intro_closed" not in st.session_state:
     st.session_state.about_intro_closed = False
 
 if not st.session_state.about_intro_closed:
-    # DEBUG: Check file existence
-    try:
-        files = os.listdir("static")
-        print(f"DEBUG: Static folder content: {files}")
-        full_path = "static/AboutMe.mp4"
-        if os.path.exists(full_path):
-            size_mb = os.path.getsize(full_path) / (1024 * 1024)
-            msg = f"Found AboutMe.mp4 (Size: {size_mb:.2f} MB)"
-            print(f"DEBUG: {msg}")
-            st.toast(msg, icon="💿")
-        else:
-            msg = "AboutMe.mp4 NOT FOUND in static folder"
-            print(f"DEBUG: {msg}")
-            st.error(msg)
-    except Exception as e:
-        print(f"DEBUG Error: {e}")
-
     VIDEO_SRC = "/app/static/AboutMe.mp4" 
     
     st.markdown(f"""
@@ -173,9 +156,6 @@ if not st.session_state.about_intro_closed:
     <div class="about-modal">
         <video controls autoplay muted playsinline>
           <source src="https://github.com/knguyen2000/portfolio/raw/main/static/AboutMe.mp4" type="video/mp4" />
-        #   <source src="/app/static/AboutMe.mp4" type="video/mp4" />
-        #   <source src="app/static/AboutMe.mp4" type="video/mp4" />
-        #   <source src="static/AboutMe.mp4" type="video/mp4" />
           <p>Your browser does not support the video tag.</p>
         </video>
     </div>
@@ -257,25 +237,31 @@ if st.session_state.about_intro_closed:
     <style>
         .floating-replay-btn {
             position: fixed;
-            bottom: 30px;
-            right: 30px;
+            bottom: 30%;
+            right: 0;
             
-            /* Adaptive properties using Streamlit theme variables */
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            
             background-color: var(--secondary-background-color);
-            color: var(--text-color);
-            border: 1px solid var(--primary-color);
+            color: #FF4B4B; /* Vibrant Coral Red */
+            border: 1px solid #FF4B4B;
+            border-right: none;
             
-            padding: 12px 24px;
-            border-radius: 50px;
+            padding: 25px 12px;
+            border-radius: 10px 0 0 10px;
             text-decoration: none;
-            font-size: 14px;
-            font-weight: 600;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
             
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            box-shadow: -2px 4px 10px rgba(0,0,0,0.2);
             z-index: 9998;
-            transition: all 0.3s ease;
+            transition: all 0.2s ease;
+            
             display: flex;
             align-items: center;
+            justify-content: center;
             gap: 8px;
             font-family: sans-serif;
             
@@ -283,17 +269,19 @@ if st.session_state.about_intro_closed:
             animation: fadeIn 0.5s forwards 1s;
         }
         @keyframes fadeIn {
-            to { opacity: 1; }
+            to { opacity: 0.8; }
         }
         .floating-replay-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
-            border-color: var(--text-color);
-            filter: brightness(1.1); /* Slightly brighter on hover */
+            opacity: 1;
+            padding-right: 8px; /* Slight bump */
+            transform: translateX(-2px);
+            background-color: #FF4B4B; /* Coral fill */
+            color: white;
+            box-shadow: -4px 6px 15px rgba(0,0,0,0.3);
         }
     </style>
     <a href="?replay_video=1" target="_self" class="floating-replay-btn">
-       ⏪ Replay Intro
+       Replay Intro
     </a>
     """, unsafe_allow_html=True)
 
