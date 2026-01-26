@@ -94,7 +94,24 @@ if "about_intro_closed" not in st.session_state:
     st.session_state.about_intro_closed = False
 
 if not st.session_state.about_intro_closed:
-    VIDEO_URL = "/app/static/AboutMe.mp4"
+    # DEBUG: Check file existence
+    try:
+        files = os.listdir("static")
+        print(f"DEBUG: Static folder content: {files}")
+        full_path = "static/AboutMe.mp4"
+        if os.path.exists(full_path):
+            size_mb = os.path.getsize(full_path) / (1024 * 1024)
+            msg = f"Found AboutMe.mp4 (Size: {size_mb:.2f} MB)"
+            print(f"DEBUG: {msg}")
+            st.toast(msg, icon="💿")
+        else:
+            msg = "AboutMe.mp4 NOT FOUND in static folder"
+            print(f"DEBUG: {msg}")
+            st.error(msg)
+    except Exception as e:
+        print(f"DEBUG Error: {e}")
+
+    VIDEO_SRC = "/app/static/AboutMe.mp4" 
     
     st.markdown(f"""
     <style>
