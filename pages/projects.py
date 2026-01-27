@@ -102,7 +102,7 @@ if not st.session_state.projects_intro_closed:
     """, unsafe_allow_html=True)
 
 # --- REPLAY BUTTON ---
-if st.session_state.projects_intro_closed:
+if st.session_state.projects_intro_closed and not st.query_params.get("project"):
     st.markdown("""
     <style>
         .floating-replay-btn {
@@ -557,3 +557,4 @@ else:
         
         if clicked_id:
             st.query_params["project"] = clicked_id
+            st.rerun()
