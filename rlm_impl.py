@@ -13,6 +13,15 @@ class RLMAgent:
         self.history = []
         self.docs = docs or {}
         self.log_callback = log_callback
+        
+        # Cumulative token usage
+        self.token_usage = {'input': 0, 'output': 0, 'total': 0}
+
+    def _update_tokens(self, usage_metadata):
+        if usage_metadata:
+            self.token_usage['input'] += usage_metadata.prompt_token_count or 0
+            self.token_usage['output'] += usage_metadata.candidates_token_count or 0
+            self.token_usage['total'] += usage_metadata.total_token_count or 0 or 0
 
     def log(self, msg):
         print(f"[RLM] {msg}")
@@ -32,6 +41,7 @@ class RLMAgent:
                 contents=prompt_text,
                 config=types.GenerateContentConfig(temperature=0)
             )
+            self._update_tokens(response.usage_metadata, len(response.text))
             return response.text
         except Exception as e:
             return f"Error in llm_query: {e}"
@@ -111,6 +121,9 @@ Do not return FINAL until you are sure.
             {"role": "user", "parts": [{"text": system_prompt + "\n\nQuery: " + user_query}]}
         ]
         
+        # Reset tokens for this run
+        self.token_usage = {'input': 0, 'output': 0, 'total': 0}
+        
         # Start the loop
         for step in range(self.max_steps):
             self.log(f"--- Step {step+1} ---")
@@ -128,6 +141,7 @@ Do not return FINAL until you are sure.
                 )
                 
                 response = chat.send_message(current_msg_parts)
+                self._update_tokens(response.usage_metadata)
                 content = response.text
                 
                 self.history.append({"role": "model", "parts": [{"text": content}]})
@@ -137,9 +151,9 @@ Do not return FINAL until you are sure.
                 if "FINAL(" in content:
                     match = re.search(r"FINAL\((.*?)\)", content, re.DOTALL)
                     if match:
-                        return match.group(1)
+                        return match.group(1), self.token_usage
                     else:
-                        return content # Fallback
+                        return content, self.token_usage # Fallback
 
                 # Check for Code
                 code_match = re.search(r"```repl(.*?)```", content, re.DOTALL)
@@ -157,4 +171,4 @@ Do not return FINAL until you are sure.
             except Exception as e:
                 self.history.append({"role": "user", "parts": [{"text": f"Error: {e}"}]})
         
-        return "Max steps reached without final answer."
+        return "Max steps reached without final answer.", self.token_usage

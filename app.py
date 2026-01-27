@@ -238,6 +238,16 @@ try:
                 if msg["role"] == "user":
                     st.write(msg["content"])
                 else:
+                    # Render Token Usage
+                    if "token_usage" in msg and msg["token_usage"]:
+                        stats = msg["token_usage"]
+                        stats = msg["token_usage"]
+                        total_tokens = stats.get('total', 0)
+                        st.caption(f"🪙 Tokens: {total_tokens}")
+                        
+                        if total_tokens > 6500:
+                            st.warning(f"⚠️ High Token Usage ({total_tokens}). Limit is 15K/min (Khuong is poor 😔). You should wait ~60s to avoid rate limit error from Google.")
+                    
                     # Render Debug/Status Steps if available
                     if msg.get("debug_steps"):
                         with st.status("🧠 Thinking Process", state="complete", expanded=False):
@@ -298,14 +308,18 @@ try:
                                 steps_log.append(msg)
                                 
                             rlm = RLMAgent(client, MODEL_ID, docs=docs, log_callback=ui_logger)
-                            response_text = rlm.completion(prompt_text)
+                            response_text, token_stats = rlm.completion(prompt_text)
+                            
+                            limit_msg = f"🪙 Total Tokens Used: {token_stats['total']}"
+                            ui_logger(limit_msg)
                             status.update(label="RLM Finished!", state="complete", expanded=True)
                         
                         st.session_state.messages.append({
                             "role": "assistant", 
                             "content": response_text,
                             "html_content": None,
-                            "debug_steps": steps_log
+                            "debug_steps": steps_log,
+                            "token_usage": token_stats
                         })
                         st.rerun()
                     
@@ -393,6 +407,15 @@ try:
                         response = chat.send_message(final_prompt)
                         log_status("Answer received.")
                         
+                        # Extract Token Usage
+                        token_stats = {}
+                        if hasattr(response, "usage_metadata"):
+                            print(f"[DEBUG] Raw Metadata: {response.usage_metadata}")
+                            token_stats = {
+                                'total': response.usage_metadata.total_token_count or 0
+                            }
+                            log_status(f"🪙 Tokens: {token_stats['total']}")
+
                         # Skip trace engine when verify disabled
                         if st.session_state.verify_enabled:
                             log_status("Verifying sources (Trace Engine)...")
@@ -406,7 +429,8 @@ try:
                         "role": "assistant", 
                         "content": response.text,
                         "html_content": traced_html,
-                        "debug_steps": steps_log
+                        "debug_steps": steps_log,
+                        "token_usage": token_stats
                     })
                     st.session_state.last_html_debug = traced_html 
                     log_event("Appended AI msg -> Rerunning")
