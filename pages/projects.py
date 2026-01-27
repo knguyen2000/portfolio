@@ -557,4 +557,3 @@ else:
         
         if clicked_id:
             st.query_params["project"] = clicked_id
-            st.rerun()
