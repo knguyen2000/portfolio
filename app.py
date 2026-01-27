@@ -214,13 +214,15 @@ try:
             
             if st.session_state.verify_enabled:
                 st.markdown("<p style='text-align: center; color: gray; font-size: 0.85em;'><i>In your next prompt, click highlighted text to see source (might take a while)</i></p>", unsafe_allow_html=True)
+            
+            st.markdown("<p style='text-align: center; color: #856404; background-color: #fff3cd; border: 1px solid #ffeeba; padding: 0.5rem; border-radius: 0.25rem; font-size: 0.85em;'>⚠️ This mode does not have access to all data due to TPM limit (15K). Switch to RLM mode for full access.</p>", unsafe_allow_html=True)
     else:
         # In RLM mode, verify is implicit/different, so disable manual toggle or ensure it's off
         st.session_state.verify_enabled = False 
         
         _, col_center, _ = st.columns([1, 2, 1])
         with col_center:
-             st.markdown("<p style='text-align: center; color: #856404; background-color: #fff3cd; border: 1px solid #ffeeba; padding: 0.5rem; border-radius: 0.25rem; font-size: 0.85em;'>⚠️ In this mode, models easily get hallucinate but you can trace it in the thinking status</p>", unsafe_allow_html=True)
+             st.markdown("<p style='text-align: center; color: #856404; background-color: #fff3cd; border: 1px solid #ffeeba; padding: 0.5rem; border-radius: 0.25rem; font-size: 0.85em;'>⚠️ This mode can access full data in my portfolio, but it's more likely to get hallucinate (can be traced in thinking status)</p>", unsafe_allow_html=True)
 
     # Dynamic Column Layout
     # If a document is open, split screen [3, 2].
@@ -369,17 +371,21 @@ try:
                                 json_match = re.search(r'\[.*\]', router_response.text, re.DOTALL)
                                 if json_match:
                                     parsed_files = json.loads(json_match.group(0))
-                                    valid_files = [f for f in parsed_files if f in docs]
+                                    # Filter: Only allow root files for RAG
+                                    root_docs = {k: v for k, v in docs.items() if "/" not in k and "\\" not in k}
+                                    valid_files = [f for f in parsed_files if f in root_docs]
                                     if valid_files:
                                         selected_files = valid_files
                                 log_status(f"Router selected: {selected_files}")
                             except Exception as e:
-                                log_status(f"Router Parse Error: {e}. using all docs.")
-                                selected_files = list(docs.keys())
+                                log_status(f"Router Parse Error: {e}. using all root docs.")
+                                # Fallback: only root docs
+                                selected_files = [k for k in docs.keys() if "/" not in k and "\\" not in k]
                         else:
                             # Fast path: skip router
                             log_status("Verify OFF - using all docs (Fast Mode)")
-                            selected_files = list(docs.keys())
+                            # Filter: exclude subdirectories (e.g. projects/)
+                            selected_files = [k for k in docs.keys() if "/" not in k and "\\" not in k]
                             
                         log_status("Constructing context...")
                         

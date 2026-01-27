@@ -10,36 +10,39 @@ def clean_extracted_text(text):
     return " ".join(text.split())
 
 def load_corpus(data_dir="data"):
-    """Loads documents from the 'data' folder"""
-    docs = {}
-    
-    # Create data dir if it doesn't exist
+    """Loads documents from the 'data' folder recursively"""
     if not os.path.exists(data_dir):
         return {}
-            
-    for f in os.listdir(data_dir):
-        file_path = os.path.join(data_dir, f)
-        try:
-            raw_text = ""
-            if f.endswith(".txt") or f.endswith(".md"):
-                with open(file_path, "r", encoding="utf-8") as file:
-                    raw_text = file.read()
-            elif f.endswith(".pdf"):
-                import PyPDF2
-                with open(file_path, "rb") as file:
-                    reader = PyPDF2.PdfReader(file)
-                    for page in reader.pages:
-                        extracted = page.extract_text()
-                        if extracted:
-                            raw_text += extracted + " "
-            elif f.endswith(".docx"):
-                import docx
-                doc = docx.Document(file_path)
-                raw_text = "\n".join([para.text for para in doc.paragraphs])
-            docs[f] = clean_extracted_text(raw_text)
-            
-        except Exception as e:
-            print(f"Error loading {f}: {e}")
+
+    docs = {}
+    for root, dirs, files in os.walk(data_dir):
+        for f in files:
+            file_path = os.path.join(root, f)
+            # Use relative path as key to avoid ambiguity
+            rel_path = os.path.relpath(file_path, data_dir).replace("\\", "/") # normalize to forward slash
+            try:
+                raw_text = ""
+                if f.endswith(".txt") or f.endswith(".md"):
+                    with open(file_path, "r", encoding="utf-8") as file:
+                        raw_text = file.read()
+                elif f.endswith(".pdf"):
+                    import PyPDF2
+                    with open(file_path, "rb") as file:
+                        reader = PyPDF2.PdfReader(file)
+                        for page in reader.pages:
+                            extracted = page.extract_text()
+                            if extracted:
+                                raw_text += extracted + " "
+                elif f.endswith(".docx"):
+                    import docx
+                    doc = docx.Document(file_path)
+                    raw_text = "\n".join([para.text for para in doc.paragraphs])
+                
+                if raw_text:
+                    docs[rel_path] = clean_extracted_text(raw_text)
+                
+            except Exception as e:
+                print(f"Error loading {f}: {e}")
     return docs
 
 def find_maximal_matches(response_text, corpus_docs, min_len=15):

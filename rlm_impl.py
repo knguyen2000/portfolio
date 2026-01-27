@@ -4,6 +4,7 @@ import sys
 import contextlib
 from google import genai
 from google.genai import types
+from rlm.utils.prompts import RLM_SYSTEM_PROMPT
 
 class RLMAgent:
     def __init__(self, client, model_id, docs=None, log_callback=None):
@@ -11,17 +12,26 @@ class RLMAgent:
         self.model_id = model_id
         self.max_steps = 10
         self.history = []
-        self.docs = docs or {}
         self.log_callback = log_callback
+        
+        # Flatten docs into a single global context string
+        # If docs is a dict, we format it as pseudo-XML or similar
+        self.context = ""
+        if docs:
+            if isinstance(docs, dict):
+                for fname, content in docs.items():
+                    self.context += f"\n<file name='{fname}'>\n{content}\n</file>\n"
+            else:
+                self.context = str(docs)
         
         # Cumulative token usage
         self.token_usage = {'input': 0, 'output': 0, 'total': 0}
 
-    def _update_tokens(self, usage_metadata):
+    def _update_tokens(self, usage_metadata, manual_prompt_len=0):
         if usage_metadata:
-            self.token_usage['input'] += usage_metadata.prompt_token_count or 0
+            self.token_usage['input'] += usage_metadata.prompt_token_count or manual_prompt_len
             self.token_usage['output'] += usage_metadata.candidates_token_count or 0
-            self.token_usage['total'] += usage_metadata.total_token_count or 0 or 0
+            self.token_usage['total'] += usage_metadata.total_token_count or 0
 
     def log(self, msg):
         print(f"[RLM] {msg}")
@@ -41,10 +51,22 @@ class RLMAgent:
                 contents=prompt_text,
                 config=types.GenerateContentConfig(temperature=0)
             )
-            self._update_tokens(response.usage_metadata, len(response.text))
+            self._update_tokens(response.usage_metadata, 0)
             return response.text
         except Exception as e:
             return f"Error in llm_query: {e}"
+
+    def llm_query_batched_callback(self, prompts):
+        """
+        Batched version of llm_query for Map-Reduce strategies.
+        """
+        self.log(f"Wait... Sub-Agent scanning {len(prompts)} chunks...")
+        results = []
+        for p in prompts:
+            # TODO: will fix run in parallel in the future
+            res = self.llm_query_callback(p)
+            results.append(res)
+        return results
 
     def execute_code(self, code):
         """
@@ -56,10 +78,11 @@ class RLMAgent:
         stderr_capture = io.StringIO()
 
         # Globals for the REPL
-        # We inject 'llm_query' so the code can call it.
         repl_globals = {
             "llm_query": self.llm_query_callback,
-            "docs": self.docs,
+            "llm_query_batched": self.llm_query_batched_callback,
+            "context": self.context,
+            "re": re, 
             "print": lambda *args, **kwargs: print(*args, file=stdout_capture, **kwargs)
         }
 
@@ -76,45 +99,7 @@ class RLMAgent:
         """
         Main Recursive Loop.
         """
-        system_prompt = """
-You are a Recursive Language Model (RLM) agent.
-You can access, transform, and analyze this context interactively in a REPL environment that can recursively query sub-LLMs.
-
-TOOLS AVAILABLE:
-1. Python REPL: You can execute python code. Use the following format:
-```repl
-print("Hello")
-```
-
-2. llm_query(prompt: str) -> str:
-   A special function available in the REPL. Use it to ask simple questions to a sub-agent.
-   Example:
-```repl
-fact = llm_query("What is the capital of France?")
-print(f"The capital is {fact}")
-```
-
-3. docs variable:
-   You have access to a global dictionary `docs` containing the knowledge base.
-   - Keys: Filenames (str)
-   - Values: File content (str)
-   You can use python to read, search, or summarize these documents.
-   Example:
-```repl
-print(docs.keys())
-content = docs['my_life.txt']
-print(content[:100])
-```
-
-INSTRUCTIONS:
-- Break down complex problems.
-- Use `llm_query` to look up facts or perform sub-tasks.
-- You can use python to process data, do math, or manipulate strings.
-- When you have the final answer, you MUST output it in this format:
-FINAL(The Answer Here)
-
-Do not return FINAL until you are sure.
-        """
+        system_prompt = RLM_SYSTEM_PROMPT
 
         # Initialize history
         self.history = [
@@ -130,8 +115,6 @@ Do not return FINAL until you are sure.
             
             try:
                 # Use chat mode to properly handle history
-                # We separate the last message as the one to 'send'
-                current_msg_parts = self.history[-1]["parts"][0]["text"]
                 past_history = self.history[:-1]
 
                 chat = self.client.chats.create(
@@ -140,23 +123,29 @@ Do not return FINAL until you are sure.
                     history=past_history
                 )
                 
-                response = chat.send_message(current_msg_parts)
+                # Send the last message
+                last_msg = self.history[-1]["parts"][0]["text"]
+                response = chat.send_message(last_msg)
+                
                 self._update_tokens(response.usage_metadata)
                 content = response.text
                 
                 self.history.append({"role": "model", "parts": [{"text": content}]})
                 self.log(f"Model: {content}")
 
-                # Check for FINAL
-                if "FINAL(" in content:
-                    match = re.search(r"FINAL\((.*?)\)", content, re.DOTALL)
+                # Check for FINAL (XML)
+                if "<FINAL>" in content:
+                    match = re.search(r"<FINAL>(.*?)(?:</FINAL>|$)", content, re.DOTALL)
                     if match:
-                        return match.group(1), self.token_usage
-                    else:
-                        return content, self.token_usage # Fallback
+                        return match.group(1).strip(), self.token_usage
+                
+
 
                 # Check for Code
-                code_match = re.search(r"```repl(.*?)```", content, re.DOTALL)
+                code_match = re.search(r"```python(.*?)```", content, re.DOTALL)
+                if not code_match:
+                    code_match = re.search(r"```repl(.*?)```", content, re.DOTALL)
+                
                 if code_match:
                     code = code_match.group(1).strip()
                     self.log(f"Executing Code:\n{code}")
