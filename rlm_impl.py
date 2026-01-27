@@ -26,6 +26,14 @@ class RLMAgent:
         
         # Cumulative token usage
         self.token_usage = {'input': 0, 'output': 0, 'total': 0}
+        
+        # Initialize Persistent REPL Globals
+        self.repl_globals = {
+            "llm_query": self.llm_query_callback,
+            "llm_query_batched": self.llm_query_batched_callback,
+            "context": self.context,
+            "re": re
+        }
 
     def _update_tokens(self, usage_metadata, manual_prompt_len=0):
         if usage_metadata:
@@ -77,18 +85,11 @@ class RLMAgent:
         stdout_capture = io.StringIO()
         stderr_capture = io.StringIO()
 
-        # Globals for the REPL
-        repl_globals = {
-            "llm_query": self.llm_query_callback,
-            "llm_query_batched": self.llm_query_batched_callback,
-            "context": self.context,
-            "re": re, 
-            "print": lambda *args, **kwargs: print(*args, file=stdout_capture, **kwargs)
-        }
+        self.repl_globals["print"] = lambda *args, **kwargs: print(*args, file=stdout_capture, **kwargs)
 
         try:
             with contextlib.redirect_stdout(stdout_capture), contextlib.redirect_stderr(stderr_capture):
-                exec(code, repl_globals)
+                exec(code, self.repl_globals)
             output = stdout_capture.getvalue()
             error = stderr_capture.getvalue()
             return output + ("\nstderr:\n" + error if error else "")
