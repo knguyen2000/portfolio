@@ -18,6 +18,143 @@ st.markdown("""
 # --- SIDEBAR ---
 render_sidebar()
 
+# --- INTRO VIDEO OVERLAY ---
+# Check if user clicked overlay to close or replay
+query_params = st.query_params
+action_close = query_params.get("close_projects_video") == "1"
+action_replay = query_params.get("replay_projects_video") == "1"
+
+if action_close or action_replay:
+    st.session_state.projects_intro_closed = action_close
+    st.query_params.clear()
+
+if "projects_intro_closed" not in st.session_state:
+    st.session_state.projects_intro_closed = False
+
+if not st.session_state.projects_intro_closed:
+    st.markdown(f"""
+    <style>
+      .about-modal {{
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: auto;
+        height: auto;
+        max-width: 95vw;
+        max-height: 90vh;
+        background: #000;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+        z-index: 1000000; /* Above backdrop */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }}
+      
+      .about-modal video {{
+        display: block;
+        max-width: 100%;
+        max-height: 90vh;
+        width: auto;
+        height: auto;
+        object-fit: contain; /* Ensure full video is visible */
+      }}
+      
+      /* Backdrop Link */
+      .about-backdrop {{
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.85);
+        z-index: 999999;
+        display: block;
+        cursor: pointer;
+        text-decoration: none;
+      }}
+      
+      .click-hint {{
+        position: fixed;
+        bottom: 30px;
+        left: 50%;
+        transform: translateX(-50%);
+        color: rgba(255,255,255,0.6);
+        font-size: 14px;
+        z-index: 1000001;
+        pointer-events: none;
+      }}
+    </style>
+
+    <!-- Backdrop Link -->
+    <a href="?close_projects_video=1" target="_self" class="about-backdrop"></a>
+
+    <!-- Modal -->
+    <div class="about-modal">
+        <video controls autoplay playsinline>
+          <source src="https://github.com/knguyen2000/portfolio/raw/main/static/ProjectIntro.mp4" type="video/mp4" />
+          <source src="/app/static/ProjectIntro.mp4" type="video/mp4" />
+          <p>Your browser does not support the video tag.</p>
+        </video>
+    </div>
+
+    <!-- Hint -->
+    <div class="click-hint">Click anywhere to skip</div>
+    """, unsafe_allow_html=True)
+
+# --- REPLAY BUTTON ---
+if st.session_state.projects_intro_closed:
+    st.markdown("""
+    <style>
+        .floating-replay-btn {
+            position: fixed;
+            bottom: 30%;
+            right: 0;
+            
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            
+            background-color: var(--secondary-background-color);
+            color: #FF4B4B; /* Coral Red */
+            border: 1px solid #FF4B4B;
+            border-right: none;
+            
+            padding: 25px 12px;
+            border-radius: 10px 0 0 10px;
+            text-decoration: none;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            
+            box-shadow: -2px 4px 10px rgba(0,0,0,0.2);
+            z-index: 9998;
+            transition: all 0.2s ease;
+            
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-family: sans-serif;
+            
+            opacity: 0;
+            animation: fadeIn 0.5s forwards 1s;
+        }
+        @keyframes fadeIn {
+            to { opacity: 0.8; }
+        }
+        .floating-replay-btn:hover {
+            opacity: 1;
+            padding-right: 8px; /* Slight bump */
+            transform: translateX(-2px);
+            background-color: #FF4B4B; /* Coral fill */
+            color: white;
+            box-shadow: -4px 6px 15px rgba(0,0,0,0.3);
+        }
+    </style>
+    <a href="?replay_projects_video=1" target="_self" class="floating-replay-btn">
+       Replay Intro
+    </a>
+    """, unsafe_allow_html=True)
+
 # --- HELPER FUNCTIONS ---
 def load_projects(data_dir=os.path.join("data", "projects")):
     projects = []
