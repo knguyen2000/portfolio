@@ -7,6 +7,7 @@ import re
 # --- LOGIC IMPORT ---
 from trace_engine import load_corpus, find_maximal_matches
 from utils.sidebar import render_sidebar
+from rlm_impl import RLMAgent
 
 # --- CONFIGURATION ---
 st.set_page_config(layout="wide", page_title="Meet Khuong", page_icon="data/panda_eat.png")
@@ -45,6 +46,11 @@ st.markdown("""
         align-self: flex-start;
         max-height: 90vh;
         overflow-y: auto;
+    }
+    div[role="radiogroup"], div[data-testid="stRadio"] > div {
+        display: flex;
+        justify-content: center;
+        width: 100%;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -186,17 +192,35 @@ def log_event(msg):
 try:
     st.markdown("<h1 class='main-header'>Hey there! Ask me anything about Khuong</h1>", unsafe_allow_html=True)
     
-    # --- VERIFY TOGGLE ---
-    _, col_center, _ = st.columns([1, 1, 1])
-    with col_center:
-        btn_label = "✅ Verify ON" if st.session_state.verify_enabled else "🔍 Verify Sources"
-        btn_type = "primary" if st.session_state.verify_enabled else "secondary"
-        if st.button(btn_label, type=btn_type, use_container_width=True):
-            st.session_state.verify_enabled = not st.session_state.verify_enabled
-            st.rerun()
+    # --- AGENT MODE SELECTOR ---
+    c1, c2, c3 = st.columns([1, 1, 1])
+    with c2:
+        agent_mode = st.radio(
+            "Select Agent Mode", 
+            ["Standard RAG", "Recursive Language Model (RLM)"], 
+            horizontal=True,
+            label_visibility="collapsed"
+        )
+
+    # --- VERIFY TOGGLE (RAG Only) ---
+    if agent_mode == "Standard RAG":
+        _, col_center, _ = st.columns([1, 1, 1])
+        with col_center:
+            btn_label = "✅ Verify ON" if st.session_state.verify_enabled else "🔍 Verify Sources"
+            btn_type = "primary" if st.session_state.verify_enabled else "secondary"
+            if st.button(btn_label, type=btn_type, use_container_width=True):
+                st.session_state.verify_enabled = not st.session_state.verify_enabled
+                st.rerun()
+            
+            if st.session_state.verify_enabled:
+                st.markdown("<p style='text-align: center; color: gray; font-size: 0.85em;'><i>In your next prompt, click highlighted text to see source (might take a while)</i></p>", unsafe_allow_html=True)
+    else:
+        # In RLM mode, verify is implicit/different, so disable manual toggle or ensure it's off
+        st.session_state.verify_enabled = False 
         
-        if st.session_state.verify_enabled:
-            st.markdown("<p style='text-align: center; color: gray; font-size: 0.85em;'><i>In your next prompt, click highlighted text to see source (might take a while)</i></p>", unsafe_allow_html=True)
+        _, col_center, _ = st.columns([1, 2, 1])
+        with col_center:
+             st.markdown("<p style='text-align: center; color: #856404; background-color: #fff3cd; border: 1px solid #ffeeba; padding: 0.5rem; border-radius: 0.25rem; font-size: 0.85em;'>⚠️ In this mode, models easily get hallucinate but you can trace it in the thinking status</p>", unsafe_allow_html=True)
 
     # Dynamic Column Layout
     # If a document is open, split screen [3, 2].
@@ -214,6 +238,12 @@ try:
                 if msg["role"] == "user":
                     st.write(msg["content"])
                 else:
+                    # Render Debug/Status Steps if available
+                    if msg.get("debug_steps"):
+                        with st.status("🧠 Thinking Process", state="complete", expanded=False):
+                            for step in msg["debug_steps"]:
+                                st.write(step)
+
                     if not msg.get("html_content"):
                         st.write(msg["content"])
                         continue
@@ -256,94 +286,127 @@ try:
                     # Retrieve prompt
                     prompt_container = st.session_state.messages[-1]
                     prompt_text = prompt_container["content"]
-                    
-                    log_event("Analysing Context...")
-                    
-                    # Skip router when verify disabled for speed
-                    if st.session_state.verify_enabled:
-                        # Lightweight index for Router
-                        doc_index = {}
-                        for name, content in docs.items():
-                            L = len(content)
-                            if L < 2000:
-                                preview = content
-                            else:
-                                start = content[:600]
-                                mid_idx = L // 2
-                                mid = content[mid_idx-300 : mid_idx+300]
-                                end = content[-600:]
-                                preview = f"{start}\n...\n{mid}\n...\n{end}"
-                            doc_index[name] = preview
 
-                        index_str = "\n".join([f"- {name}: {preview}" for name, preview in doc_index.items()])
+                    if agent_mode == "Recursive Language Model (RLM)":
+                        log_event("RLM Mode Selected")
+                        steps_log = []
                         
-                        router_prompt = f"""
-                        You are a data librarian.
-                        User Query: "{prompt_text}"
+                        with st.status("🧠 RLM Thinking...", expanded=True) as status:
+                            def ui_logger(msg):
+                                status.write(msg)
+                                log_event(msg)
+                                steps_log.append(msg)
+                                
+                            rlm = RLMAgent(client, MODEL_ID, docs=docs, log_callback=ui_logger)
+                            response_text = rlm.completion(prompt_text)
+                            status.update(label="RLM Finished!", state="complete", expanded=True)
                         
-                        Available Documents:
-                        {index_str}
-                        
-                        Task: Return a JSON list of filenames that are relevant to the query.
-                        Example: ["file1.txt", "file2.pdf"]
-                        Return ONLY the JSON list. If no specific document is needed, return all filenames.
-                        """
-                        
-                        router_chat = client.chats.create(model=MODEL_ID)
-                        router_response = router_chat.send_message(router_prompt)
-                        
-                        selected_files = list(docs.keys())
-                        try:
-                            json_match = re.search(r'\[.*\]', router_response.text, re.DOTALL)
-                            if json_match:
-                                parsed_files = json.loads(json_match.group(0))
-                                valid_files = [f for f in parsed_files if f in docs]
-                                if valid_files:
-                                    selected_files = valid_files
-                            log_event(f"Router selected: {selected_files}")
-                        except Exception as e:
-                            log_event(f"Router Parse Error: {e}. using all docs.")
+                        st.session_state.messages.append({
+                            "role": "assistant", 
+                            "content": response_text,
+                            "html_content": None,
+                            "debug_steps": steps_log
+                        })
+                        st.rerun()
+                    
+                    with st.status("🔍 Standard RAG Working...", expanded=True) as status:
+                        steps_log = []
+                        def log_status(msg):
+                            status.write(msg)
+                            log_event(msg)
+                            steps_log.append(msg)
+                            
+                        # Skip router when verify disabled for speed
+                        if st.session_state.verify_enabled:
+                            log_status("Router: Analyzing query...")
+                            # Lightweight index for Router
+                            doc_index = {}
+                            for name, content in docs.items():
+                                L = len(content)
+                                if L < 2000:
+                                    preview = content
+                                else:
+                                    start = content[:600]
+                                    mid_idx = L // 2
+                                    mid = content[mid_idx-300 : mid_idx+300]
+                                    end = content[-600:]
+                                    preview = f"{start}\n...\n{mid}\n...\n{end}"
+                                doc_index[name] = preview
+
+                            index_str = "\n".join([f"- {name}: {preview}" for name, preview in doc_index.items()])
+                            
+                            router_prompt = f"""
+                            You are a data librarian.
+                            User Query: "{prompt_text}"
+                            
+                            Available Documents:
+                            {index_str}
+                            
+                            Task: Return a JSON list of filenames that are relevant to the query.
+                            Example: ["file1.txt", "file2.pdf"]
+                            Return ONLY the JSON list. If no specific document is needed, return all filenames.
+                            """
+                            
+                            router_chat = client.chats.create(model=MODEL_ID)
+                            router_response = router_chat.send_message(router_prompt)
+                            
                             selected_files = list(docs.keys())
-                    else:
-                        # Fast path: skip router
-                        log_event("Verify OFF - skipping router for speed")
-                        selected_files = list(docs.keys())
+                            try:
+                                json_match = re.search(r'\[.*\]', router_response.text, re.DOTALL)
+                                if json_match:
+                                    parsed_files = json.loads(json_match.group(0))
+                                    valid_files = [f for f in parsed_files if f in docs]
+                                    if valid_files:
+                                        selected_files = valid_files
+                                log_status(f"Router selected: {selected_files}")
+                            except Exception as e:
+                                log_status(f"Router Parse Error: {e}. using all docs.")
+                                selected_files = list(docs.keys())
+                        else:
+                            # Fast path: skip router
+                            log_status("Verify OFF - using all docs (Fast Mode)")
+                            selected_files = list(docs.keys())
+                            
+                        log_status("Constructing context...")
                         
-                    log_event("Generating response...")
-                    
-                    # Construct Context from Selected Files
-                    relevant_context = "\n\n".join([f"--- SOURCE: {name} ---\n{docs[name]}" for name in selected_files])
-                    
-                    # System Prompt & Context
-                    system_prompt_text = f"You are a professional portfolio assistant.\nKnowledge Base: {relevant_context}\n\n1. Answer the user's question directly and naturally.\n2. You MUST use exact, verbatim phrases from the Knowledge Base to support your claims.\n3. Do NOT use markdown bold (**) or italics or any marks to specify which part are from knowledge. The system extracts and highlights these phrases automatically.\n4. Do not just dump raw text; synthesize the answer"
-                    
-                    # Construct History
-                    formatted_history = []
-                    for m in st.session_state.messages[:-1]:
-                        if m["content"]:
-                            role = "model" if m["role"] == "assistant" else "user"
-                            formatted_history.append({"role": role, "parts": [{"text": m["content"]}]})
+                        # Construct Context from Selected Files
+                        relevant_context = "\n\n".join([f"--- SOURCE: {name} ---\n{docs[name]}" for name in selected_files])
+                        
+                        # System Prompt & Context
+                        system_prompt_text = f"You are a professional portfolio assistant.\nKnowledge Base: {relevant_context}\n\n1. Answer the user's question directly and naturally.\n2. You MUST use exact, verbatim phrases from the Knowledge Base to support your claims.\n3. Do NOT use markdown bold (**) or italics or any marks to specify which part are from knowledge. The system extracts and highlights these phrases automatically.\n4. Do not just dump raw text; synthesize the answer"
+                        
+                        # Construct History
+                        formatted_history = []
+                        for m in st.session_state.messages[:-1]:
+                            if m["content"]:
+                                role = "model" if m["role"] == "assistant" else "user"
+                                formatted_history.append({"role": role, "parts": [{"text": m["content"]}]})
 
-                    chat = client.chats.create(
-                        model=MODEL_ID,
-                        config=genai.types.GenerateContentConfig(temperature=0),
-                        history=formatted_history
-                    )
-                    
-                    final_prompt = system_prompt_text + "\n\nUser Query: " + prompt_text
-                    response = chat.send_message(final_prompt)
-                    log_event("Response received")
-                    
-                    # Skip trace engine when verify disabled
-                    if st.session_state.verify_enabled:
-                        traced_html = find_maximal_matches(response.text, docs)
-                    else:
-                        traced_html = None
+                        chat = client.chats.create(
+                            model=MODEL_ID,
+                            config=genai.types.GenerateContentConfig(temperature=0),
+                            history=formatted_history
+                        )
+                        
+                        final_prompt = system_prompt_text + "\n\nUser Query: " + prompt_text
+                        log_status("Generating answer...")
+                        response = chat.send_message(final_prompt)
+                        log_status("Answer received.")
+                        
+                        # Skip trace engine when verify disabled
+                        if st.session_state.verify_enabled:
+                            log_status("Verifying sources (Trace Engine)...")
+                            traced_html = find_maximal_matches(response.text, docs)
+                        else:
+                            traced_html = None
+                            
+                        status.update(label="Response Ready!", state="complete", expanded=True)
                     
                     st.session_state.messages.append({
                         "role": "assistant", 
                         "content": response.text,
-                        "html_content": traced_html
+                        "html_content": traced_html,
+                        "debug_steps": steps_log
                     })
                     st.session_state.last_html_debug = traced_html 
                     log_event("Appended AI msg -> Rerunning")
