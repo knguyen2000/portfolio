@@ -44,3 +44,4 @@ def render_sidebar():
         st.page_link("app.py", label="Chat", icon="🐼", use_container_width=True)
         st.page_link("pages/about.py", label="About Me", icon="✈️", use_container_width=True)
         st.page_link("pages/projects.py", label="Projects", icon="🛋️", use_container_width=True)
+        st.page_link("pages/gallery.py", label="Gallery", icon="🖼️", use_container_width=True)
