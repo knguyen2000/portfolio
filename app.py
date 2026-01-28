@@ -382,8 +382,6 @@ try:
                             )
                             response = chat.send_message(system_prompt + "\n\nUser Question: " + prompt_text)
                             
-                            status.update(label="Vector Retrieval Complete!", state="complete", expanded=False)
-                            
                             token_stats = {
                                 'total': response.usage_metadata.total_token_count if response.usage_metadata else 0
                             }
@@ -402,6 +400,8 @@ try:
                                 "token_usage": token_stats
                             })
                             st.session_state.last_html_debug = traced_html
+                            
+                            status.update(label="Vector Retrieval Complete!", state="complete", expanded=False)
                             st.rerun()
                     
                     with st.status("🔍 File-Based Context Working...", expanded=True) as status:
