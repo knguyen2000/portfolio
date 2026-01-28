@@ -545,7 +545,7 @@ gallery_dir = "gallery"
 if not os.path.exists(gallery_dir):
     st.error("Gallery folder missing")
 else:
-    files = [os.path.join(gallery_dir, f) for f in os.listdir(gallery_dir) if f.lower().endswith(('.png','.jpg','.jpeg'))]
+    files = sorted([os.path.join(gallery_dir, f) for f in os.listdir(gallery_dir) if f.lower().endswith(('.png','.jpg','.jpeg'))])
     if not files:
         st.warning("No images")
     else:
