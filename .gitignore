@@ -5,3 +5,11 @@ env/
 **/env/
 __pycache__/
 *.pyc
+
+# Vector DB
+chroma_db/
+*.sqlite3
+
+# Local
+models_list.txt
+list_models.py

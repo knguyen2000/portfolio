@@ -8,6 +8,7 @@ import re
 from trace_engine import load_corpus, find_maximal_matches
 from utils.sidebar import render_sidebar
 from rlm_impl import RLMAgent
+from utils.vector_store import VectorEngine
 
 # --- CONFIGURATION ---
 st.set_page_config(layout="wide", page_title="Meet Khuong", page_icon="data/panda_eat.png")
@@ -197,13 +198,13 @@ try:
     with c2:
         agent_mode = st.radio(
             "Select Agent Mode", 
-            ["Standard RAG", "Recursive Language Model (RLM)"], 
+            ["File-Based Context", "Recursive Language Model (RLM)", "Standard RAG (Vector + Sliding Window)"], 
             horizontal=True,
             label_visibility="collapsed"
         )
 
     # --- VERIFY TOGGLE (RAG Only) ---
-    if agent_mode == "Standard RAG":
+    if agent_mode == "File-Based Context" or agent_mode == "Standard RAG (Vector + Sliding Window)":
         _, col_center, _ = st.columns([1, 1, 1])
         with col_center:
             btn_label = "✅ Verify ON" if st.session_state.verify_enabled else "🔍 Verify Sources"
@@ -215,14 +216,17 @@ try:
             if st.session_state.verify_enabled:
                 st.markdown("<p style='text-align: center; color: gray; font-size: 0.85em;'><i>In your next prompt, click highlighted text to see source (might take a while)</i></p>", unsafe_allow_html=True)
             
-            st.markdown("<p style='text-align: center; color: #856404; background-color: #fff3cd; border: 1px solid #ffeeba; padding: 0.5rem; border-radius: 0.25rem; font-size: 0.85em;'>⚠️ This mode does not have access to all data due to TPM limit (15K). Switch to RLM mode for full access.</p>", unsafe_allow_html=True)
+            if agent_mode == "File-Based Context":
+                 st.markdown("<p style='text-align: center; color: #856404; background-color: #fff3cd; border: 1px solid #ffeeba; padding: 0.5rem; border-radius: 0.25rem; font-size: 0.85em;'>⚠️ Least efficient mode, consumes most tokens, not have access to all data due to model's TPM limit (15K), but simplest to implement and least likely to hallucinate</p>", unsafe_allow_html=True)
+            elif agent_mode == "Standard RAG (Vector + Sliding Window)":
+                 st.markdown("<p style='text-align: center; color: #856404; background-color: #fff3cd; border: 1px solid #ffeeba; padding: 0.5rem; border-radius: 0.25rem; font-size: 0.85em;'>⚠️ Full data access, fastest, and use least tokens, but more likely to get hallucinate (enable Verify Source to verify its answer) </p>", unsafe_allow_html=True)
     else:
         # In RLM mode, verify is implicit/different, so disable manual toggle or ensure it's off
         st.session_state.verify_enabled = False 
         
         _, col_center, _ = st.columns([1, 2, 1])
         with col_center:
-             st.markdown("<p style='text-align: center; color: #856404; background-color: #fff3cd; border: 1px solid #ffeeba; padding: 0.5rem; border-radius: 0.25rem; font-size: 0.85em;'>⚠️ This mode can access full data in my portfolio, but it's more likely to get hallucinate (can be traced in thinking status)</p>", unsafe_allow_html=True)
+             st.markdown("<p style='text-align: center; color: #856404; background-color: #fff3cd; border: 1px solid #ffeeba; padding: 0.5rem; border-radius: 0.25rem; font-size: 0.85em;'>⚠️ Full data access, but takes long time to conclude final answer and more likely to get hallucinate (can be traced in thinking status)</p>", unsafe_allow_html=True)
 
     # Dynamic Column Layout
     # If a document is open, split screen [3, 2].
@@ -324,8 +328,83 @@ try:
                             "token_usage": token_stats
                         })
                         st.rerun()
+
+                    elif agent_mode == "Standard RAG (Vector + Sliding Window)":
+                        log_event("Vector RAG Mode Selected")
+                        steps_log = []
+                        with st.status("🛠️ Vector RAG Working...", expanded=True) as status:
+                            def log_status(msg):
+                                status.write(msg)
+                                log_event(msg)
+                                steps_log.append(msg)
+                                
+                            # Initialize Engine
+                            ve = VectorEngine(api_key=api_key)
+                            
+                            # Check Index
+                            count = ve.count()
+                            log_status(f"Vector Database Status: {count} chunks indexed.")
+                            
+                            
+                            if count == 0:
+                                log_status("⚠️ Building Index (Including Subdirectories)...")
+                                # Use ALL docs now
+                                num_chunks = ve.build_index(docs, status_callback=log_status)
+                                log_status(f"✅ Indexed {num_chunks} chunks from {len(docs)} files.")
+                                count = ve.count() # Update count display logic if needed
+                            else:
+                                log_status("Using existing index.")
+                            
+                            # Retrieval
+                            log_status(f"🔍 Searching ChromaDB for: '{prompt_text}'")
+                            retrieved_chunks = ve.search(prompt_text, k=5)
+                            log_status(f"Found {len(retrieved_chunks)} relevant chunks.")
+                            
+                            # Augmentation
+                            context_str = "\n---\n".join(retrieved_chunks)
+                            
+                            # Generation
+                            system_prompt = f"""You are a helpful assistant.
+                            Use the following retrieved context chunks to answer the user's question.
+                            
+                            CONTEXT:
+                            {context_str}
+                            
+                            Instruction:
+                            Answer based ONLY on the context provided.
+                            If the answer is not in the context, say "I couldn't find that in the database."
+                            """
+                            
+                            log_status("Generating answer...")
+                            chat = client.chats.create(
+                                model=MODEL_ID,
+                                config=genai.types.GenerateContentConfig(temperature=0)
+                            )
+                            response = chat.send_message(system_prompt + "\n\nUser Question: " + prompt_text)
+                            
+                            status.update(label="Vector Retrieval Complete!", state="complete", expanded=False)
+                            
+                            token_stats = {
+                                'total': response.usage_metadata.total_token_count if response.usage_metadata else 0
+                            }
+                            
+                            # Verify if enabled
+                            traced_html = None
+                            if st.session_state.verify_enabled:
+                                log_status("Verifying sources (Strict Match)...")
+                                traced_html = find_maximal_matches(response.text, docs)
+                            
+                            st.session_state.messages.append({
+                                "role": "assistant", 
+                                "content": response.text,
+                                "html_content": traced_html, 
+                                "debug_steps": steps_log,
+                                "token_usage": token_stats
+                            })
+                            st.session_state.last_html_debug = traced_html
+                            st.rerun()
                     
-                    with st.status("🔍 Standard RAG Working...", expanded=True) as status:
+                    with st.status("🔍 File-Based Context Working...", expanded=True) as status:
                         steps_log = []
                         def log_status(msg):
                             status.write(msg)

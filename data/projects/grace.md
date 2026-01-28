@@ -264,7 +264,7 @@ The game-theoretic framing suggests that behavior emerges from strategic coordin
 
 ### Statistical Weaknesses 
 
-All experiments were conducted on my fairly basic personal laptop. As a result, the construction of the HotpotQA knowledge graph and the offline calibration of the policy were **computationally expensive and time-consuming**, even at modest scales. When building graph, I had to cap the sample size at 5000 and rely on aggressive pruning to keep runtime manageable. Now, GRACE explicitly depends on graph construction and graph-derived signals as core inputs to the Mediator’s decisions. The policy was learned on a calibration subset of merely (N_{\text{calib}} = 100) trajectories. Now the discretized state space has size
+All experiments were conducted on my fairly basic personal laptop. As a result, the construction of the HotpotQA knowledge graph and the offline calibration of the policy were **computationally expensive and time-consuming**, even at modest scales. When building graph, I had to cap the sample size at 5000 and rely on aggressive pruning to keep runtime manageable. Now, GRACE explicitly depends on graph construction and graph-derived signals as core inputs to the Mediator’s decisions. The policy was learned on a calibration subset of merely $N_{\text{calib}} = 100$ trajectories. Now the discretized state space has size
 $$
 |S| = 3 \times 3 = 9,
 $$
