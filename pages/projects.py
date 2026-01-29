@@ -29,7 +29,7 @@ if action_close or action_replay:
     st.query_params.clear()
 
 if "projects_intro_closed" not in st.session_state:
-    st.session_state.projects_intro_closed = False
+    st.session_state.projects_intro_closed = True
 
 if not st.session_state.projects_intro_closed:
     st.markdown(f"""
