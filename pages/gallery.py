@@ -208,7 +208,7 @@ def generate_gallery_html(image_data_list):
             line-height: 1.4;
             color: #444;
             display: block;
-            max-width: 300px;
+            max-width: 650px;
             text-transform: none; /* Subtitle is normal text */
         }
 
@@ -268,21 +268,22 @@ def generate_gallery_html(image_data_list):
     
     # Abstract captions
     CAPTIONS = [
-        "SEA", "CALM", "CHARM", "LAGO", "MOOD", "SIMPLE", 
-        "LA LA LAND", "DREAM", "HANOK", "GARDEN"
+        "LOVE", "SEA", "CALM", "CHARM", "LAGO", "MOOD", "SIMPLE", 
+        "LA LA LAND", "DREAM", "HANOK", "CITY GARDEN"
     ]
     
     # Random subtitles
     SUBTITLES = [
+        '"Auroras are the light created when Earth, forever unable to reach the Sun, draws in minute traces of solar plasma with the pull of its magnetic field. Perhaps this dazzling, mesmerizing light is but a tragic, fleeting illusion born from the Earth’s yearning for the Sun, fooling it into believing that a mere brush with the Sun has brought the two closer." - A quote from Can this love be translated?',
         "On this bench watching the world go by",
         "The harbor is busy, but there’s a sense of hygge here that you just can't find anywhere else",
         "Timeless, historic charm that makes you want to wander around for hours just looking at the buildings",
-        "Alpine air and turquoise water; a view that looks like it was painted",
-        "Straight out of a fairytale",
+        "Alpine air and turquoise water; how great to wake up to this",
+        "Lost in a fairytale",
         "Happiness really is just a good cone of gelato",
         "Grow up seeing this exact street in a hundred different movies, and then you’re suddenly standing right in the middle of it",
         "A million lights and a million dreams",
-        "Sometimes you just need to trade skyscrapers for mountains and busy streets for flower fields"
+        "Sometimes you just need to trade skyscrapers for mountains and busy streets for flower fields",
         "Will never get tired of how colorful this city is when the sun is out"
     ]
     
@@ -385,6 +386,15 @@ def generate_gallery_html(image_data_list):
         extra_wrapper_style = ""
         extra_block_style = ""
         
+        if content_idx == 0:
+             txt_row = 3
+        
+        if content_idx == 3:
+             txt_col = 3
+             txt_row = 5
+             extra_wrapper_style = "align-items: center;"
+             extra_block_style = "text-align: center; align-items: center; display: flex; flex-direction: column;"
+
         if content_idx == 4:
             # Center horizontally
             txt_col = 3 # Span 4 cols for center
@@ -393,10 +403,14 @@ def generate_gallery_html(image_data_list):
             extra_block_style = "text-align: center; align-items: center; display: flex; flex-direction: column;"
         elif content_idx == 9:
             # Text in lower left
-            txt_col = 1
+            txt_col = 2
             txt_row = GRID_ROWS - 1
             extra_wrapper_style = "align-items: flex-start; justify-content: flex-end;"
             extra_block_style = "text-align: left;"
+
+        elif content_idx == 10:
+             txt_row = 1
+             txt_col = 1
 
         text_html = f"""
         <div class="grid-tile tile-text-wrapper" style="grid-column: {txt_col} / span 4; grid-row: {txt_row} / span 2; border: none; pointer-events: none; {extra_wrapper_style}">
