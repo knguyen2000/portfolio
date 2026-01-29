@@ -15,11 +15,35 @@ st.markdown("""
             padding: 0;
             max-width: 100%;
         }
+        
+        /* LOADER */
+        .loader {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #f4f4f4;
+            z-index: 999999;
+            display: flex; justify-content: center; align-items: center;
+            animation: fadeOut 1s ease-in-out 3s forwards;
+            pointer-events: all;
+        }
+        .loader-text {
+            font-weight: 900; font-size: 1.5rem; letter-spacing: 3px; color: #111;
+            text-transform: uppercase;
+            animation: pulse 1.5s infinite ease-in-out;
+            font-family: 'Montserrat', sans-serif;
+        }
+        @keyframes pulse { 0% { opacity: 0.3; } 50% { opacity: 1; } 100% { opacity: 0.3; } }
+        @keyframes fadeOut { 
+            0% { opacity: 1; } 
+            99% { opacity: 0; pointer-events: none; } 
+            100% { opacity: 0; pointer-events: none; display: none; } 
+        }
     </style>
+    <div class="loader"><div class="loader-text">Curating Moments...</div></div>
 """, unsafe_allow_html=True)
 
 render_sidebar()
 
+@st.cache_data
 def get_image_data(path):
     """Returns base64 string, original dimensions (w, h), and filename."""
     try:
@@ -88,6 +112,7 @@ def calculate_grid_coverage(img_w, img_h):
         
     return best_w, best_h
 
+@st.cache_data
 def generate_gallery_html(image_data_list):
     
     css = """
@@ -266,13 +291,11 @@ def generate_gallery_html(image_data_list):
     
     sections = ""
     
-    # Abstract captions
     CAPTIONS = [
         "LOVE", "SEA", "CALM", "CHARM", "LAGO", "MOOD", "SIMPLE", 
         "LA LA LAND", "DREAM", "HANOK", "CITY GARDEN"
     ]
     
-    # Random subtitles
     SUBTITLES = [
         '"Auroras are the light created when Earth, forever unable to reach the Sun, draws in minute traces of solar plasma with the pull of its magnetic field. Perhaps this dazzling, mesmerizing light is but a tragic, fleeting illusion born from the Earth’s yearning for the Sun, fooling it into believing that a mere brush with the Sun has brought the two closer." - A quote from Can this love be translated?',
         "On this bench watching the world go by",
@@ -377,7 +400,7 @@ def generate_gallery_html(image_data_list):
         # Content Selection
         if is_first:
             main_text = "GALLERY"
-            sub_text = "Just some random moments!!!!"
+            sub_text = "Just some random moments captured in my trips!"
         else:
             main_text = CAPTIONS[content_idx % len(CAPTIONS)]
             sub_text = SUBTITLES[content_idx % len(SUBTITLES)]
