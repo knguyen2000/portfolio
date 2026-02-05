@@ -200,7 +200,8 @@ try:
             "Select Agent Mode", 
             ["File-Based Context", "Recursive Language Model (RLM)", "Standard RAG (Vector + Sliding Window)"], 
             horizontal=True,
-            label_visibility="collapsed"
+            label_visibility="collapsed",
+            index=1
         )
 
     # --- VERIFY TOGGLE (RAG Only) ---
