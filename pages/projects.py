@@ -251,10 +251,15 @@ if current_project:
             toc_entries = []
             final_lines = []
             existing_slugs = set()
-            
+            in_code_block = False
+
             for line in processed_content.split('\n'):
                 stripped = line.strip()
-                if stripped.startswith('#'):
+                
+                if stripped.startswith('```'):
+                    in_code_block = not in_code_block
+                
+                if not in_code_block and stripped.startswith('#'):
                     # Determine level
                     level = len(line.split(' ')[0])
                     # Clean title

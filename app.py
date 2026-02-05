@@ -287,7 +287,6 @@ try:
                         st.rerun()
 
     # Chat Input
-    log_event("Rendering Chat Input")
     if prompt := st.chat_input("Ask about my skills..."):
         log_event("User Input received")
         st.session_state.messages.append({"role": "user", "content": prompt})
