@@ -192,7 +192,7 @@ LOCATIONS = {
     "Italy": [12.4964, 41.9028], # Rome
     "France": [2.3522, 48.8566], # Paris
     
-    # USA States
+    # USA
     "Virginia": [-78.4764, 38.0293], # Charlottesville
     "Washington DC": [-77.0369, 38.9072],
     "Maryland": [-76.4922, 38.9784], # Annapolis
@@ -202,6 +202,8 @@ LOCATIONS = {
     "Massachusetts": [-71.0589, 42.3601], # Boston
     "Florida": [-80.1918, 25.7617], # Miami
     "California": [-122.4194, 37.7749], # San Francisco
+    "Illinois": [-87.6298, 41.8781], # Chicago
+    "Colorado": [-104.9903, 39.7392], # Denver
 }
 
 # --- HELPER FUNCTIONS ---
@@ -357,7 +359,7 @@ LOCATION_TO_CHAPTER = {
     "Thailand": 4, "Malaysia": 4, "South Korea": 4, "Sweden": 4, 
     "Austria": 4, "Italy": 4, "France": 4, 
     "Virginia": 5, "Washington DC": 5, "Maryland": 5, "New York": 5,
-    "New Jersey": 5, "Pennsylvania": 5, "Massachusetts": 5, "Florida": 5, "California": 5
+    "New Jersey": 5, "Pennsylvania": 5, "Massachusetts": 5, "Florida": 5, "California": 5, "Illinois": 5, "Colorado": 5
 }
 
 # Container for the thread line
