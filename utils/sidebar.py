@@ -31,7 +31,7 @@ def render_sidebar():
                 <a href="mailto:khuongnguyen211000@gmail.com" style="text-decoration: none; color: #ea4335; font-size: 28px;">
                     <i class="fa-solid fa-envelope"></i>
                 </a>
-                <a href="https://drive.google.com/file/d/1Nx6z3jjxkYVhexlMXxiZLns6Ucg7IR_9/view" target="_blank" style="text-decoration: none; color: inherit; font-size: 28px;">
+                <a href="https://drive.google.com/file/d/1Hr3VkBGKb0rQfC0bygqzU0-lEAroUTym/view" target="_blank" style="text-decoration: none; color: inherit; font-size: 28px;">
                     <i class="fa-solid fa-address-card"></i>
                 </a>
             </div>

@@ -696,19 +696,19 @@ More details: https://12factor.net/dev-prod-parity
 
 The goal is to eliminate the "It works on my machine" problem, where code passes tests locally but crashes when deployed to real users. Historically, development and production differed significantly. The 12-Factor methodology aims to close these gaps.
 
-#### 10.1. The Time Gap
+### 10.1. The Time Gap
 
 - **Traditional:** Developers work on a feature for weeks. They merge code once a month. This leads to massive, risky deployments ("Big Bang" releases).
 - **12-Factor:** Developers practice **Continuous Deployment**. Code is committed, tested, and deployed to production hours or minutes after it is written.
 - **Technical Benefit:** If a bug occurs, we know it was caused by the code written in the last hour, making debugging much faster.
 
-#### 10.2. The Personnel Gap
+### 10.2. The Personnel Gap
 
 - **Traditional:** Developers write code. They throw it "over the wall" to the Operations (Ops) team, who are responsible for deploying and maintaining it.
 - **12-Factor:** Use a **DevOps** model. The developers who write the code are also involved in deploying and monitoring it.
 - **Technical Benefit:** Developers write better code because they are the ones who get paged/woken up if the application crashes at night.
 
-#### 10.3. The Tools Gap (Critical)
+### 10.3. The Tools Gap (Critical)
 
 - **Traditional:** Developers use lightweight tools locally (e.g., macOS, SQLite, WEBrick) for speed. Production uses robust tools (e.g., Linux, PostgreSQL, Nginx) for stability.
 - **12-Factor:** Use the **exact same** software stack and versions in both environments.
