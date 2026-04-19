@@ -7,16 +7,15 @@ import chromadb
 from google import genai
 
 
-def _corpus_fingerprint(docs_dict: Dict[str, str]) -> str:
+def _corpus_fingerprint(docs_dict: Dict[str, str], model_id: str) -> str:
     """
-    Compute a stable fingerprint for the given corpus.
+    Compute a stable fingerprint for the given corpus and model.
 
-    We hash the sorted (filename, content-length, content-md5) tuples so that
-    any change to a file — content edit, addition, or deletion — produces a
-    different fingerprint. Using content md5 is more reliable than mtime alone
-    because mtime can be preserved by some copy tools.
+    Includes the model_id so that switching embedding models correctly
+    invalidates old indices.
     """
     h = hashlib.md5()
+    h.update(model_id.encode())
     for fname in sorted(docs_dict.keys()):
         content = docs_dict[fname]
         h.update(fname.encode())
@@ -26,9 +25,10 @@ def _corpus_fingerprint(docs_dict: Dict[str, str]) -> str:
 
 
 class VectorEngine:
-    def __init__(self, api_key, persist_dir="./chroma_db", log_callback=None):
+    def __init__(self, api_key, model_id, persist_dir="./chroma_db", log_callback=None):
         self.client = chromadb.PersistentClient(path=persist_dir)
         self.api_key = api_key
+        self.model_id = model_id
         self.genai_client = genai.Client(api_key=api_key)
         self.log_callback = log_callback
 
@@ -51,23 +51,16 @@ class VectorEngine:
             return True
         meta = self.collection.metadata or {}
         stored = meta.get("corpus_fingerprint", "")
-        return stored != _corpus_fingerprint(docs_dict)
+        return stored != _corpus_fingerprint(docs_dict, self.model_id)
 
     def get_embedding(self, text: str, max_retries: int = 5) -> List[float]:
         """
         Embed `text` with automatic retry on 429 RESOURCE_EXHAUSTED.
-
-        The Gemini free tier is capped at 100 embed_content requests/minute.
-        When we exceed the cap the API returns a retryDelay field (e.g. '33s').
-        We parse that delay out of the error message and sleep exactly that long
-        before retrying, so the rebuild self-throttles instead of hammering the
-        quota indefinitely.
         """
-        model = "models/gemini-embedding-2-preview"
         for attempt in range(max_retries):
             try:
                 result = self.genai_client.models.embed_content(
-                    model=model,
+                    model=self.model_id,
                     contents=text
                 )
                 return result.embeddings[0].values
@@ -87,10 +80,10 @@ class VectorEngine:
                     time.sleep(wait)
                 else:
                     # Non-rate-limit error — surface immediately
-                    self.last_error = f"{model}: {e}"
+                    self.last_error = f"{self.model_id}: {e}"
                     return []
 
-        self.last_error = f"{model}: max retries exceeded"
+        self.last_error = f"{self.model_id}: max retries exceeded"
         return []
 
     def chunk_text(self, text: str, chunk_size: int = 1000, overlap: int = 200) -> List[str]:
@@ -188,7 +181,7 @@ class VectorEngine:
         # on the next request, silently leaving a degraded index.
         successfully_embedded = len(documents)
         if successfully_embedded == total_chunks_expected:
-            fingerprint = _corpus_fingerprint(docs_dict)
+            fingerprint = _corpus_fingerprint(docs_dict, self.model_id)
             self.collection.modify(metadata={
                 "corpus_fingerprint": fingerprint,
             })

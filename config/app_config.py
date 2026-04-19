@@ -9,6 +9,7 @@ PAGE_LAYOUT = "wide"
 
 # --- Model Config ---
 MODEL_ID = "models/gemma-4-31b-it"
+EMBEDDING_MODEL_ID = "models/gemini-embedding-2-preview"
 
 # --- Token Thresholds ---
 # Token count above which a rate-limit warning is shown to the user.

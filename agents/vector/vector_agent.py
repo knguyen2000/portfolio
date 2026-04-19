@@ -1,5 +1,6 @@
 from google import genai
 from .vector_store import VectorEngine
+from config.app_config import EMBEDDING_MODEL_ID
 
 class VectorRAGAgent:
     def __init__(self, client, model_id, api_key, docs=None, log_callback=None):
@@ -21,7 +22,11 @@ class VectorRAGAgent:
         Executes standard Vector RAG.
         Returns: (response_text, token_stats)
         """
-        ve = VectorEngine(api_key=self.api_key, log_callback=self.log_callback)
+        ve = VectorEngine(
+            api_key=self.api_key, 
+            model_id=EMBEDDING_MODEL_ID,
+            log_callback=self.log_callback
+        )
         self.log(f"Vector Database Status: {ve.count()} chunks indexed.")
 
         if ve.is_stale(self.docs):
