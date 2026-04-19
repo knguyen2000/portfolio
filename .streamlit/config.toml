@@ -1,0 +1,5 @@
+[server]
+enableStaticServing = true
+
+[client]
+showSidebarNavigation = false
