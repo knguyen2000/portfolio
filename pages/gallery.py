@@ -1,16 +1,17 @@
 import streamlit as st
 import os
+import io
 import base64
 import random
 from PIL import Image
 from utils.sidebar import render_sidebar
+from config.about_data import GALLERY_CAPTIONS, GALLERY_SUBTITLES, GALLERY_MAIN_TITLE, GALLERY_MAIN_SUBTITLE
 import streamlit.components.v1 as components
 
 st.set_page_config(layout="wide", page_title="Gallery", page_icon="🖼️")
 
 st.markdown("""
     <style>
-        [data-testid="stSidebarNav"] {display: none;}
         .block-container {
             padding: 0;
             max-width: 100%;
@@ -60,7 +61,6 @@ def get_image_data(path):
                 img = img.convert("RGB")
             
             # Save to Bytes
-            import io
             buffered = io.BytesIO()
             img.save(buffered, format="JPEG", quality=85)
             
@@ -291,25 +291,6 @@ def generate_gallery_html(image_data_list):
     
     sections = ""
     
-    CAPTIONS = [
-        "LOVE", "SEA", "CALM", "CHARM", "LAGO", "MOOD", "SIMPLE", 
-        "LA LA LAND", "DREAM", "HANOK", "CITY GARDEN"
-    ]
-    
-    SUBTITLES = [
-        '"Auroras are the light created when Earth, forever unable to reach the Sun, draws in minute traces of solar plasma with the pull of its magnetic field. Perhaps this dazzling, mesmerizing light is but a tragic, fleeting illusion born from the Earth’s yearning for the Sun, fooling it into believing that a mere brush with the Sun has brought the two closer." - A quote from Can this love be translated?',
-        "On this bench watching the world go by",
-        "The harbor is busy, but there’s a sense of hygge here that you just can't find anywhere else",
-        "Timeless, historic charm that makes you want to wander around for hours just looking at the buildings",
-        "Alpine air and turquoise water; how great to wake up to this",
-        "Lost in a fairytale",
-        "Happiness really is just a good cone of gelato",
-        "Grow up seeing this exact street in a hundred different movies, and then you’re suddenly standing right in the middle of it",
-        "A million lights and a million dreams",
-        "Sometimes you just need to trade skyscrapers for mountains and busy streets for flower fields",
-        "Will never get tired of how colorful this city is when the sun is out"
-    ]
-    
     for idx, (b64, w, h, fname) in enumerate(image_data_list):
         cols, rows = calculate_grid_coverage(w, h)
         GRID_COLS = 8
@@ -399,11 +380,11 @@ def generate_gallery_html(image_data_list):
         
         # Content Selection
         if is_first:
-            main_text = "GALLERY"
-            sub_text = "Just some random moments captured in my trips!"
+            main_text = GALLERY_MAIN_TITLE
+            sub_text = GALLERY_MAIN_SUBTITLE
         else:
-            main_text = CAPTIONS[content_idx % len(CAPTIONS)]
-            sub_text = SUBTITLES[content_idx % len(SUBTITLES)]
+            main_text = GALLERY_CAPTIONS[content_idx % len(GALLERY_CAPTIONS)]
+            sub_text = GALLERY_SUBTITLES[content_idx % len(GALLERY_SUBTITLES)]
 
         # Override for specific slides
         extra_wrapper_style = ""
