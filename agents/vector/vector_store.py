@@ -63,7 +63,7 @@ class VectorEngine:
         before retrying, so the rebuild self-throttles instead of hammering the
         quota indefinitely.
         """
-        model = "models/gemini-embedding-001"
+        model = "models/gemini-embedding-2-preview"
         for attempt in range(max_retries):
             try:
                 result = self.genai_client.models.embed_content(
