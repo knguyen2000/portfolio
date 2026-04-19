@@ -1,6 +1,7 @@
-.streamlit
-check_*.py
-verify_trace.py
+# Secrets
+.streamlit/
+
+# Python
 env/
 **/env/
 __pycache__/
@@ -10,6 +11,10 @@ __pycache__/
 chroma_db/
 *.sqlite3
 
-# Local
+# Debug / Test artifacts
+check_*.py
+debug_*.py
+verify_*.py
+test_results.txt
 models_list.txt
 list_models.py

@@ -111,7 +111,7 @@ To support that, I built a post-generation verification layer that checks the mo
 * **Heuristics:** To prevent false positives (like independently highlighting the word "ring" because it is a substring of "engineering"), the algorithm strictly enforces word-boundary alignment.
 * **Visual Injection:** If a valid match crosses a set length threshold (e.g., 15 characters), the engine modifies the final string locally, wrapping the matched span in an HTML anchor `<a id="source_doc">` tag so the frontend can render it as a clickable highlighter.
 
-## 7. What This Portfolio Actually Demonstrates
+## 6. What This Portfolio Actually Demonstrates
 
 More than anything, this portfolio shows how I think about software systems:
 

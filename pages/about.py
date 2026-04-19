@@ -2,17 +2,19 @@ import streamlit as st
 import pydeck as pdk
 import pandas as pd
 import os
+import re
 from utils.sidebar import render_sidebar
+from utils.video_modal import handle_video_state, render_video_modal, render_replay_button
+from config.about_data import (
+    ABOUT_INTRO_VIDEO_URL,
+    LOCATIONS,
+    TITLES,
+    LOCATION_TO_CHAPTER
+)
 
 # --- PAGE CONFIG ---
 st.set_page_config(layout="wide", page_title="About Me", page_icon="✈️")
 
-# --- HIDE DEFAULT SIDEBAR ---
-st.markdown("""
-    <style>
-        [data-testid="stSidebarNav"] {display: none;}
-    </style>
-""", unsafe_allow_html=True)
 
 st.markdown("""
 <style>
@@ -81,130 +83,14 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- INTRO VIDEO OVERLAY ---
-# Check if user clicked overlay to close or replay
-query_params = st.query_params
-action_close = query_params.get("close_video") == "1"
-action_replay = query_params.get("replay_video") == "1"
+show_video = handle_video_state("close_video", "replay_video", "about_intro_closed")
+if show_video:
+    render_video_modal(
+        ABOUT_INTRO_VIDEO_URL,
+        "close_video",
+        autoplay_muted=True
+    )
 
-if action_close or action_replay:
-    st.session_state.about_intro_closed = action_close
-    st.query_params.clear()
-
-if "about_intro_closed" not in st.session_state:
-    st.session_state.about_intro_closed = False
-
-if not st.session_state.about_intro_closed:
-    VIDEO_SRC = "/app/static/AboutMe.mp4" 
-    
-    st.markdown(f"""
-    <style>
-      .about-modal {{
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        width: auto;
-        height: auto;
-        max-width: 95vw;
-        max-height: 90vh;
-        background: #000;
-        border-radius: 12px;
-        overflow: hidden;
-        box-shadow: 0 20px 60px rgba(0,0,0,0.8);
-        z-index: 1000000; /* Above backdrop */
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }}
-      
-      .about-modal video {{
-        display: block;
-        max-width: 100%;
-        max-height: 90vh;
-        width: auto;
-        height: auto;
-        object-fit: contain; /* Ensure full video is visible */
-      }}
-      
-      /* Backdrop Link */
-      .about-backdrop {{
-        position: fixed;
-        inset: 0;
-        background: rgba(0,0,0,0.85);
-        z-index: 999999;
-        display: block;
-        cursor: pointer;
-        text-decoration: none;
-      }}
-      
-      .click-hint {{
-        position: fixed;
-        bottom: 30px;
-        left: 50%;
-        transform: translateX(-50%);
-        color: rgba(255,255,255,0.6);
-        font-size: 14px;
-        z-index: 1000001;
-        pointer-events: none;
-      }}
-    </style>
-
-    <!-- Backdrop Link -->
-    <a href="?close_video=1" target="_self" class="about-backdrop"></a>
-
-    <!-- Modal -->
-    <div class="about-modal">
-        <video controls autoplay muted playsinline>
-          <source src="https://github.com/knguyen2000/portfolio/raw/main/static/AboutMe.mp4" type="video/mp4" />
-          <p>Your browser does not support the video tag.</p>
-        </video>
-    </div>
-
-    <!-- Hint -->
-    <div class="click-hint">Click anywhere to skip</div>
-    """, unsafe_allow_html=True)
-
-# --- MAP DATA ---
-# Coordinates (Lat, Lon)
-LOCATIONS = {
-    # Home
-    "Vung Tau": [107.0843, 10.3460],
-    
-    # Asia
-    "Japan": [139.6917, 35.6895], # Tokyo
-    "Singapore": [103.8198, 1.3521],
-    "Poland": [21.0122, 52.2297], # Warsaw
-    "Thailand": [100.5018, 13.7563], # Bangkok
-    "Malaysia": [101.6869, 3.1390], # Kuala Lumpur
-    "South Korea": [126.9780, 37.5665], # Seoul
-    
-    # Oceania
-    "New Zealand": [174.7762, -41.2865], # Wellington
-    
-    # Europe
-    "Finland": [24.9384, 60.1699], # Helsinki
-    "Estonia": [24.7536, 59.4370], # Tallinn
-    "Hungary": [19.0402, 47.4979], # Budapest
-    "Denmark": [12.5683, 55.6761], # Copenhagen
-    "Germany": [8.6821, 50.1109], # Frankfurt
-    "Sweden": [12.6945, 56.0465], # Helsingborg
-    "Austria": [16.3738, 48.2082], # Vienna
-    "Italy": [12.4964, 41.9028], # Rome
-    "France": [2.3522, 48.8566], # Paris
-    
-    # USA
-    "Virginia": [-78.4764, 38.0293], # Charlottesville
-    "Washington DC": [-77.0369, 38.9072],
-    "Maryland": [-76.4922, 38.9784], # Annapolis
-    "New York": [-74.0060, 40.7128], # NYC
-    "New Jersey": [-74.1724, 40.7357], # Newark
-    "Pennsylvania": [-75.1652, 39.9526], # Philadelphia
-    "Massachusetts": [-71.0589, 42.3601], # Boston
-    "Florida": [-80.1918, 25.7617], # Miami
-    "California": [-122.4194, 37.7749], # San Francisco
-    "Illinois": [-87.6298, 41.8781], # Chicago
-    "Colorado": [-104.9903, 39.7392], # Denver
-}
 
 # --- HELPER FUNCTIONS ---
 
@@ -235,57 +121,8 @@ st.caption("Click on any dot in the map to jump to certain part of my story!")
 
 # --- REPLAY BUTTON ---
 if st.session_state.about_intro_closed:
-    st.markdown("""
-    <style>
-        .floating-replay-btn {
-            position: fixed;
-            bottom: 30%;
-            right: 0;
-            
-            writing-mode: vertical-rl;
-            text-orientation: mixed;
-            
-            background-color: var(--secondary-background-color);
-            color: #FF4B4B; /* Vibrant Coral Red */
-            border: 1px solid #FF4B4B;
-            border-right: none;
-            
-            padding: 25px 12px;
-            border-radius: 10px 0 0 10px;
-            text-decoration: none;
-            font-size: 15px;
-            font-weight: 700;
-            cursor: pointer;
-            
-            box-shadow: -2px 4px 10px rgba(0,0,0,0.2);
-            z-index: 9998;
-            transition: all 0.2s ease;
-            
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            font-family: sans-serif;
-            
-            opacity: 0;
-            animation: fadeIn 0.5s forwards 1s;
-        }
-        @keyframes fadeIn {
-            to { opacity: 0.8; }
-        }
-        .floating-replay-btn:hover {
-            opacity: 1;
-            padding-right: 8px; /* Slight bump */
-            transform: translateX(-2px);
-            background-color: #FF4B4B; /* Coral fill */
-            color: white;
-            box-shadow: -4px 6px 15px rgba(0,0,0,0.3);
-        }
-    </style>
-    <a href="?replay_video=1" target="_self" class="floating-replay-btn">
-       Replay Intro
-    </a>
-    """, unsafe_allow_html=True)
+    render_replay_button("replay_video")
+
 
 # --- MAIN CONTENT LAYOUT ---
 
@@ -337,30 +174,6 @@ st.markdown("### 📜 My Story")
 full_text = load_text()
 chunks = full_text.split("\n\n")
 
-# Map chunks to chapters
-TITLES = [
-    {"title": "How it all started 🇻🇳"},
-    {"title": "My first trip - New Zealand 🇳🇿"},
-    {"title": "Summer in a city I have always dreamed of - Tokyo 🇯🇵"}, 
-    {"title": "Undergrad life in Finland 🇫🇮 (🇭🇺, 🇵🇱, 🇩🇰, 🇩🇪, 🇸🇬)"},
-    {"title": "Working in Vietnam and business trip to Denmark 🇻🇳 🇩🇰 (🇹🇭, 🇲🇾, 🇰🇷, 🇸🇪, 🇦🇹, 🇮🇹, 🇫🇷)"},
-    {"title": "American Dream 🇺🇸"},
-    {"title": "A bit more about me..."}
-]
-
-# Map locations to chapter indices for auto-scrolling
-LOCATION_TO_CHAPTER = {
-    "Vung Tau": 0,
-    "New Zealand": 1,
-    "Japan": 2,
-    "Finland": 3, "Hungary": 3, "Poland": 3, "Singapore": 3,
-    "Germany": 3, "Estonia": 3, "Denmark": 4,
-    "Vietnam": 4,
-    "Thailand": 4, "Malaysia": 4, "South Korea": 4, "Sweden": 4, 
-    "Austria": 4, "Italy": 4, "France": 4, 
-    "Virginia": 5, "Washington DC": 5, "Maryland": 5, "New York": 5,
-    "New Jersey": 5, "Pennsylvania": 5, "Massachusetts": 5, "Florida": 5, "California": 5, "Illinois": 5, "Colorado": 5
-}
 
 # Container for the thread line
 st.markdown('<div style="position: relative; padding-left: 20px; border-left: 2px solid rgba(0, 242, 234, 0.3); margin-left: 10px;">', unsafe_allow_html=True)
@@ -373,7 +186,6 @@ for i, chunk in enumerate(chunks):
         lines = chunk.split('\n')
         formatted_html = ""
         in_list = False
-        import re # Import locally to avoid top-level clutter
         
         for line in lines:
             stripped = line.strip()
