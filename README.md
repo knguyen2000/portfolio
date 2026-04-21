@@ -17,15 +17,15 @@ It is a **Streamlit web application**. Its "database" is a folder of `.md` and `
 ┌──────────────────────────────────────────────────────────────────┐
 │                         STREAMLIT RUNTIME                        │
 │  ┌────────────────────────────────────────────────────────────┐  │
-│  │                    app.py  (entry point)                   │  │
+│  │                    app.py  (entry point)  + utils/         │  │
 │  │       +  pages/about.py  pages/projects.py  pages/gallery  │  │
 │  └──────────────┬─────────────────────────────────────────────┘  │
 │                 │                                                │
-│  ┌──────────────▼──────────────┐    ┌──────────────────────────┐ │
-│  │  components/                │    │  utils/                  │ │
-│  │    agent_dispatch.py  ◄─────┼────┤    sidebar.py            │ │
-│  │    chat_renderer.py         │    │    video_modal.py        │ │
-│  └──────┬──────────────────────┘    └──────────────────────────┘ │
+│  ┌──────────────▼──────────────┐                                 │
+│  │  components/                │                                 │
+│  │    agent_dispatch.py        │                                 │
+│  │    chat_renderer.py         │                                 │
+│  └──────┬──────────────────────┘                                 |
 │         │                                                        │
 │         ▼                                                        │
 │  ┌──────────────────────────────┐   ┌──────────────────────────┐ │
