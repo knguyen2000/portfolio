@@ -1,6 +1,11 @@
 from google import genai
 from .vector_store import VectorEngine
-from config.app_config import EMBEDDING_MODEL_ID
+from config.app_config import (
+    EMBEDDING_MODEL_ID, 
+    VECTOR_CONFIDENCE_HIGH, 
+    VECTOR_CONFIDENCE_LOW, 
+    VECTOR_CAUTION_THRESHOLD
+)
 
 class VectorRAGAgent:
     def __init__(self, client, model_id, api_key, docs=None, log_callback=None):
@@ -68,9 +73,9 @@ class VectorRAGAgent:
             q = data["best_quality"]
             best_overall_quality = max(best_overall_quality, q)
             # Human-friendly labels
-            if q > 70:
+            if q > VECTOR_CONFIDENCE_HIGH:
                 label = f"🟢 High Confidence ({q}%)"
-            elif q > 30:
+            elif q > VECTOR_CONFIDENCE_LOW:
                 label = f"🟡 Moderate Confidence ({q}%)"
             else:
                 label = f"🔴 Low Confidence ({q}%)"
@@ -85,7 +90,7 @@ class VectorRAGAgent:
 
         # UI Caution for weak matches
         caution_prefix = ""
-        if best_overall_quality < 35:
+        if best_overall_quality < VECTOR_CAUTION_THRESHOLD:
             caution_prefix = "*(Note: I found some information that might be related, but my confidence is low. Please verify these details.)*\n\n"
 
         system_prompt = f"""You are a helpful assistant.

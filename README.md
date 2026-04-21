@@ -199,7 +199,7 @@ The attack surface is small, but worth enumerating:
 2. **No structured logging.** `log_event` prints to console and appends to session state. For any deployment beyond a laptop, structured JSON logs and a log level would help.
 3. **Token accounting is best-effort.** `total_token_count` is summed across multi-step RLM runs, but if a step fails, the count is partial. Not a bug — just something to know before putting a usage bill in front of a real user.
 4. **Single-threaded by design.** Streamlit serves one request at a time per session. Fine for a portfolio; becomes a wall if the app is ever multi-user at scale.
-5. **`InsightRLMAgent` v2 is disabled but kept in-tree.** Useful as research material, but readers may wonder why code exists that nothing imports. The ADR in `docs/decisions/` explains it, and the comment in `app_config.py` flags it as TODO.
+5. **`InsightRLMAgent` v2 is disabled but kept in-tree.** Useful as research material, but readers may wonder why code exists that nothing imports.
 6. **Batched sub-LLM calls are sequential.** `llm_query_batched` in the RLM loops rather than fans out, which loses the speed benefit the prompt advertises.
 
 ---
@@ -233,57 +233,3 @@ Because the architecture is layered, each kind of change has a known "surgery pa
 - **Add an AI mode** → create `agents/<mode>/<mode>_agent.py` with a class that exposes `completion(query) -> (text, tokens)`; add a mode constant in `config/app_config.py`; add a branch in `components/agent_dispatch.py`. All three existing agents follow this shape, so the dispatcher branch is small.
 - **Change embedding model** → update `EMBEDDING_MODEL_ID` in `config/app_config.py`. The corpus fingerprint will notice the change and trigger a full re-embed on next query.
 - **Swap LLM provider** → the Gemini client is passed into agents from `app.py`. Replace the client; adapt the response-parsing code inside each agent's `completion`. Not trivial but not huge.
-
----
-
-## 9. Repository Map (for quick navigation)
-
-```
-portfolio/
-├── app.py                       # Streamlit entry
-├── state.py                     # Session store helpers
-├── styles.py                    # Injected CSS
-├── requirements.txt
-├── config/
-│   ├── app_config.py            # MODEL_ID, EMBEDDING_MODEL_ID, mode list
-│   ├── profile.py               # Name, headline, social links
-│   └── about_data.py            # Map + journey data
-├── components/
-│   ├── agent_dispatch.py        # Strategy router across three agents
-│   └── chat_renderer.py         # Bubbles, click-detector, doc viewer
-├── agents/
-│   ├── rlm/
-│   │   ├── rlm_agent.py         # Iterative REPL loop (FINAL / FINAL_VAR)
-│   │   ├── base.py              # Safe builtins, sandbox, corpus bundler
-│   │   ├── insight_rlm_agent.py # Experimental v2 (DISABLED)
-│   │   ├── prompts/
-│   │   ├── DESIGN.md
-│   │   └── BEHAVIOR.md
-│   ├── vector/
-│   │   ├── vector_agent.py      # Thin orchestrator, confidence labels
-│   │   ├── vector_store.py      # ChromaDB + Gemini embeddings + fingerprint
-│   │   ├── DESIGN.md
-│   │   └── BEHAVIOR.md
-│   └── file_based/
-│       ├── file_based_agent.py  # Fast + Router modes
-│       ├── DESIGN.md
-│       └── BEHAVIOR.md
-├── engines/
-│   └── trace_engine.py          # Corpus loader + greedy maximal-match
-├── utils/
-│   ├── sidebar.py
-│   └── video_modal.py
-├── pages/
-│   ├── about.py
-│   ├── projects.py
-│   ├── gallery.py
-│   └── handbook/                # Markdown docs for each page
-├── data/
-│   ├── my_life.txt
-│   ├── how_it_works.txt
-│   ├── projects/                # One .md per project
-│   └── summaries/               # Pre-written summaries for File-Based mode
-├── static/                      # Profile photo, favicon, intro videos
-└── docs/
-    └── decisions/               # ADRs (why we removed X / disabled Y)
-```

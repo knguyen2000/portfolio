@@ -3,7 +3,8 @@ Insight-Aware RLM Agent (v2)
 Implements the 4-phase state machine: EXPLORE → INCUBATE → ILLUMINATE → SYNTHESIZE
 with episodic memory, impasse detection, context pruning, and recursive decomposition.
 
-This is a NEW mode that runs alongside the existing RLMAgent (rlm_impl.py).
+WIP
+
 """
 
 import re
