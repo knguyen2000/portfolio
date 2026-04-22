@@ -115,56 +115,93 @@ class VectorEngine:
 
     def build_index(self, docs_dict: Dict[str, str], status_callback: Optional[Callable] = None) -> int:
         """
-        Re-builds the Vector Index from scratch and stamps the new corpus fingerprint.
+        Incrementally builds the Vector Index. Only re-embeds files that have changed.
         docs_dict: {filename: content_string}
         """
-        # Clear existing
-        if self.collection.count() > 0:
-            if status_callback: status_callback("Clearing old index...")
-            self.client.delete_collection("portfolio_knowledge_base")
-            self.collection = self.client.get_or_create_collection("portfolio_knowledge_base")
+        import json
+        meta = self.collection.metadata or {}
+        stored_hashes_str = meta.get("file_hashes", "{}")
+        stored_model = meta.get("model_id", "")
+
+        try:
+            stored_hashes = json.loads(stored_hashes_str)
+        except:
+            stored_hashes = {}
+
+        # If embedding model changed, force full rebuild
+        force_rebuild = (stored_model != self.model_id)
+
+        if force_rebuild:
+            if status_callback: status_callback("Model changed or first run. Forcing full rebuild...")
+            stored_hashes = {}
+            if self.collection.count() > 0:
+                self.client.delete_collection("portfolio_knowledge_base")
+                self.collection = self.client.get_or_create_collection(
+                    name="portfolio_knowledge_base",
+                    metadata={"hnsw:space": "cosine"}
+                )
+
+        current_hashes = {}
+        for filename, content in docs_dict.items():
+            current_hashes[filename] = hashlib.md5(content.encode(errors="replace")).hexdigest()
+
+        files_to_embed = []
+        files_to_delete = []
+
+        for filename, fhash in current_hashes.items():
+            if filename not in stored_hashes or stored_hashes[filename] != fhash:
+                files_to_embed.append(filename)
+                # If it existed before but changed, we must delete its old chunks
+                if filename in stored_hashes:
+                    files_to_delete.append(filename)
+
+        for filename in stored_hashes:
+            if filename not in current_hashes:
+                files_to_delete.append(filename)
+
+        if not files_to_embed and not files_to_delete and not force_rebuild:
+            if status_callback: status_callback("✅ Index is already up-to-date.")
+            return 0
+
+        # Delete stale chunks
+        for filename in files_to_delete:
+            if status_callback: status_callback(f"Removing old chunks for {filename}...")
+            self.collection.delete(where={"source": filename})
 
         ids = []
         documents = []
         embeddings = []
         metadatas = []
 
-        processed = 0
-        total_chunks_expected = sum(
-            len(self.chunk_text(content)) for content in docs_dict.values()
-        )
+        self.last_error = None
+        failed_files = set()
 
-        self.last_error = None  # Reset error
-
-        for filename, content in docs_dict.items():
-            if status_callback: status_callback(f"Processing {filename}...")
-
-            # Chunk
+        for filename in files_to_embed:
+            content = docs_dict[filename]
+            if status_callback: status_callback(f"Embedding {filename}...")
             chunks = self.chunk_text(content)
-
-            # Embed & Prepare
+            
+            file_failed = False
             for i, chunk in enumerate(chunks):
-                # Generate stable ID
                 chunk_id = hashlib.md5(f"{filename}_{i}".encode()).hexdigest()
-
-                # Embedding (retries internally on 429)
                 emb = self.get_embedding(chunk)
                 if emb:
                     ids.append(chunk_id)
                     documents.append(chunk)
                     embeddings.append(emb)
                     metadatas.append({"source": filename, "chunk_index": i})
-                elif self.last_error and status_callback:
-                    # Only report the error once to avoid spamming
-                    status_callback(f"❌ Error embedding chunk: {self.last_error}")
-                    self.last_error = None  # Clear
-
-            processed += 1
+                else:
+                    file_failed = True
+                    if self.last_error and status_callback:
+                        status_callback(f"❌ Error embedding chunk: {self.last_error}")
+                        self.last_error = None
+            
+            if file_failed:
+                failed_files.add(filename)
 
         # Batch Upsert
         if documents:
             if status_callback: status_callback(f"Upserting {len(documents)} chunks to Vector DB...")
-
             batch_size = 50
             for i in range(0, len(documents), batch_size):
                 end = i + batch_size
@@ -175,26 +212,29 @@ class VectorEngine:
                     metadatas=metadatas[i:end]
                 )
 
-        # Only stamp the fingerprint if the rebuild fully succeeded.
-        # A partial rebuild (some chunks skipped due to persistent errors) must
-        # NOT be treated as fresh — otherwise is_stale() won't trigger a retry
-        # on the next request, silently leaving a degraded index.
-        successfully_embedded = len(documents)
-        if successfully_embedded == total_chunks_expected:
-            fingerprint = _corpus_fingerprint(docs_dict, self.model_id)
-            self.collection.modify(metadata={
-                "corpus_fingerprint": fingerprint,
-            })
-            if status_callback: status_callback(f"✅ Indexing complete. Fingerprint: {fingerprint[:8]}...")
-        else:
-            dropped = total_chunks_expected - successfully_embedded
-            if status_callback:
-                status_callback(
-                    f"⚠️ Partial index: {successfully_embedded}/{total_chunks_expected} chunks embedded "
-                    f"({dropped} dropped). Fingerprint NOT stamped — will retry on next query."
-                )
+        # Update stored_hashes
+        for filename in files_to_delete:
+            if filename in stored_hashes and filename not in current_hashes:
+                del stored_hashes[filename]
 
-        return successfully_embedded
+        for filename in files_to_embed:
+            if filename not in failed_files:
+                stored_hashes[filename] = current_hashes[filename]
+
+        fingerprint = _corpus_fingerprint(docs_dict, self.model_id)
+        
+        self.collection.modify(metadata={
+            "corpus_fingerprint": fingerprint,
+            "file_hashes": json.dumps(stored_hashes),
+            "model_id": self.model_id
+        })
+
+        if failed_files and status_callback:
+            status_callback(f"⚠️ Partial index: {len(failed_files)} files failed to embed fully.")
+        elif status_callback:
+            status_callback(f"✅ Incremental indexing complete.")
+
+        return len(documents)
 
     def search(self, query: str, k: int = 5) -> dict:
         """

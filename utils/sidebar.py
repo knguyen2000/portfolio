@@ -60,3 +60,29 @@ def render_sidebar():
         st.page_link("pages/about.py", label="About Me", icon="✈️", use_container_width=True)
         st.page_link("pages/projects.py", label="Projects", icon="🛋️", use_container_width=True)
         st.page_link("pages/gallery.py", label="Gallery", icon="🖼️", use_container_width=True)
+        st.page_link("pages/pr_dashboard.py", label="PR Dashboard", icon="🛠️", use_container_width=True)
+        
+        st.markdown("---")
+        
+        if st.button("Reset Conversation", use_container_width=True):
+            st.session_state.messages = []
+            st.session_state.view_doc = None
+            st.session_state.highlight_phrase = None
+            st.rerun()
+            
+        st.markdown("---")
+        if st.session_state.get("user_role") == "Admin":
+            st.success("👑 Logged in as Admin")
+            if st.button("Logout", use_container_width=True):
+                st.session_state.user_role = "Viewer"
+                st.rerun()
+        else:
+            with st.expander("Admin Login"):
+                pwd = st.text_input("Password", type="password")
+                if st.button("Login", use_container_width=True):
+                    correct_pwd = st.secrets.get("ADMIN_PASSWORD", "admin123")
+                    if pwd == correct_pwd:
+                        st.session_state.user_role = "Admin"
+                        st.rerun()
+                    else:
+                        st.error("Incorrect password.")

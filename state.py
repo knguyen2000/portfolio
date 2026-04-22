@@ -17,6 +17,10 @@ def init_session_state():
         st.session_state.last_html_debug = None
     if "has_snowed" not in st.session_state:
         st.session_state.has_snowed = False
+    if "user_role" not in st.session_state:
+        st.session_state.user_role = "Viewer"
+    if "editing_doc" not in st.session_state:
+        st.session_state.editing_doc = None
 
 def log_event(msg: str):
     """Appends a timestamped message to the debug log and prints it."""

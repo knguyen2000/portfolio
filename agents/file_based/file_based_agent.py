@@ -94,13 +94,15 @@ class FileBasedAgent:
 
         chat = self.client.chats.create(
             model=self.model_id,
-            config=genai.types.GenerateContentConfig(temperature=0),
+            config=genai.types.GenerateContentConfig(
+                temperature=0,
+                system_instruction=system_prompt_text
+            ),
             history=formatted_history,
         )
 
-        final_prompt = system_prompt_text + "\n\nUser Question: " + user_query
         self.log("Generating answer...")
-        response = chat.send_message(final_prompt)
+        response = chat.send_message(user_query)
         self.log("Answer received.")
 
         # Token usage

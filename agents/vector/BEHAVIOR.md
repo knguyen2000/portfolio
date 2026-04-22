@@ -72,4 +72,6 @@ Implement a lightweight "Cross-Encoder" pass after retrieval to re-sort the top 
 
 ### 3. Incremental Indexing
 Rebuilding the entire vector index (deleting the collection and re-embedding every file) on every content change is inefficient and hits API rate limits.
-- **Fix**: Implement a per-file hashing check in `VectorEngine.build_index` to only re-embed files that have actually changed since the last build.
+- **Fix**: [x] Implement a per-file hashing check in `VectorEngine.build_index` to only re-embed files that have actually changed since the last build.
+#### Vector Engine Update (`agents/vector/vector_store.py`)
+- `build_index(docs_dict, status_callback)`: **Refactored for Incremental Indexing**. Now computes per-file MD5 hashes, compares them against `file_hashes` stored in ChromaDB metadata, and uses `collection.delete(where={"source": filename})` to surgically remove and re-embed only modified files.

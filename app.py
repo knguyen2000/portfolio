@@ -18,6 +18,8 @@ from utils.sidebar import render_sidebar
 
 from components.chat_renderer import render_chat_history, render_document_viewer
 from components.agent_dispatch import generate_answer
+from utils.pr_db import init_db
+from components.editor_panel import render_editor_panel
 
 # --- Page Config ---
 st.set_page_config(layout=PAGE_LAYOUT, page_title=PAGE_TITLE, page_icon=PAGE_ICON)
@@ -42,16 +44,10 @@ else:
 
 # --- Session State ---
 init_session_state()
+init_db()
 
 # --- Sidebar ---
 render_sidebar()
-with st.sidebar:
-    st.markdown("---")
-    if st.button("Reset Conversation"):
-        st.session_state.messages = []
-        st.session_state.view_doc = None
-        st.session_state.highlight_phrase = None
-        st.rerun()
 
 # ------------------------------------------------------------------
 # Main UI
@@ -69,7 +65,6 @@ try:
             label_visibility="collapsed",
             index=DEFAULT_MODE_INDEX,
         )
-
 
     # --- Mode Description & Verify Toggle ---
     if agent_mode in (MODE_FILE_BASED, MODE_VECTOR_RAG):
@@ -131,7 +126,10 @@ try:
     # ------------------------------------------------------------------
     if col_docs:
         with col_docs:
-            render_document_viewer(docs)
+            if st.session_state.get("editing_doc"):
+                render_editor_panel(docs)
+            else:
+                render_document_viewer(docs)
 
 except Exception as main_e:
     st.error(f"Critical Application Error: {main_e}")

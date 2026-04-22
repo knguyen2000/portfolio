@@ -54,10 +54,18 @@ def render_chat_history():
 def render_document_viewer(docs):
     """Renders the source document preview pane on the right."""
     if st.session_state.view_doc:
-        if st.button("Verified Source Context (Click to Close)", type="secondary", use_container_width=True):
-            st.session_state.view_doc = None
-            st.session_state.highlight_phrase = None
-            st.rerun()
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            if st.button("Verified Source Context (Click to Close)", type="secondary", use_container_width=True):
+                st.session_state.view_doc = None
+                st.session_state.highlight_phrase = None
+                st.rerun()
+        with col2:
+            doc_is_guestbook = st.session_state.view_doc and "guestbook" in st.session_state.view_doc.lower()
+            if st.session_state.get("user_role") in ["Editor", "Admin"] or doc_is_guestbook:
+                if st.button("Propose Change", type="primary", use_container_width=True):
+                    st.session_state.editing_doc = st.session_state.view_doc
+                    st.rerun()
 
         st.success(f"Source: {st.session_state.view_doc}")
 
