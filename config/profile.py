@@ -2,7 +2,7 @@
 Profile and Social Link Configurations.
 """
 
-PROFILE_IMAGE_PATH = "static/KhuongProfile.jpeg"
+PROFILE_IMAGE_PATH = "static/KhuongProfile.png"
 
 PROFILE_NAME = "Khuong Nguyen"
 PROFILE_HEADLINE = "Master CS @ UVA"
