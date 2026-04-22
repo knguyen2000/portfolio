@@ -26,11 +26,23 @@ st.set_page_config(layout=PAGE_LAYOUT, page_title=PAGE_TITLE, page_icon=PAGE_ICO
 st.markdown(APP_CSS, unsafe_allow_html=True)
 
 # --- Data Ingestion ---
+def get_dir_mtime(dir_path: str = "data") -> float:
+    """Returns the latest modification time of any file in the directory."""
+    if not os.path.exists(dir_path):
+        return 0.0
+    max_mtime = 0.0
+    for root, _, files in os.walk(dir_path):
+        for f in files:
+            mtime = os.path.getmtime(os.path.join(root, f))
+            max_mtime = max(max_mtime, mtime)
+    return max_mtime
+
 @st.cache_data
-def get_cached_corpus():
+def get_cached_corpus(mtime: float):
     return load_corpus()
 
-docs = get_cached_corpus()
+# By passing the latest mtime, the cache automatically invalidates if any file is edited manually!
+docs = get_cached_corpus(get_dir_mtime("data"))
 
 # --- LLM Setup ---
 api_key = st.secrets.get("GOOGLE_API_KEY") or os.getenv("GOOGLE_API_KEY")
