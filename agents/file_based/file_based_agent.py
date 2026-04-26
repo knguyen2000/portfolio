@@ -2,7 +2,6 @@ import os
 import re
 import json
 from google import genai
-from engines.trace_engine import load_corpus
 
 class FileBasedAgent:
     def __init__(self, client, model_id, docs=None, log_callback=None):
@@ -23,18 +22,17 @@ class FileBasedAgent:
         Executes File-Based Context retrieval.
         Returns: (response_text, token_stats)
         """
-        # Dynamic Load Summaries
-        summary_docs = load_corpus(os.path.join("data", "summaries"))
-        if not summary_docs:
-            self.log("⚠️ No summaries found in data/summaries, falling back to root docs.")
-            # Strip subdirectories from global docs as fallback
-            summary_docs = {k: v for k, v in self.docs.items() if "/" not in k and "\\" not in k}
+        # Use all docs passed in directly (no summaries needed)
+        available_docs = self.docs
+        
+        if not available_docs:
+            self.log("⚠️ No documents found.")
 
         # Router: select relevant files
         if verify_enabled:
             self.log("Router: Analyzing query...")
             doc_index = {}
-            for name, content in summary_docs.items():
+            for name, content in available_docs.items():
                 L = len(content)
                 if L < 2000:
                     preview = content
@@ -63,24 +61,24 @@ class FileBasedAgent:
             router_chat = self.client.chats.create(model=self.model_id)
             router_response = router_chat.send_message(router_prompt)
 
-            selected_files = list(summary_docs.keys())
+            selected_files = list(available_docs.keys())
             try:
                 json_match = re.search(r'\[.*\]', router_response.text, re.DOTALL)
                 if json_match:
                     parsed_files = json.loads(json_match.group(0))
-                    valid_files = [f for f in parsed_files if f in summary_docs]
+                    valid_files = [f for f in parsed_files if f in available_docs]
                     if valid_files:
                         selected_files = valid_files
                 self.log(f"Router selected: {selected_files}")
             except Exception as e:
-                self.log(f"Router Parse Error: {e}. using all root docs.")
-                selected_files = list(summary_docs.keys())
+                self.log(f"Router Parse Error: {e}. using all docs.")
+                selected_files = list(available_docs.keys())
         else:
             self.log("Verify OFF - using all docs (Fast Mode)")
-            selected_files = list(summary_docs.keys())
+            selected_files = list(available_docs.keys())
 
         self.log("Constructing context...")
-        relevant_context = "\n\n".join([f"--- SOURCE: {name} ---\n{summary_docs[name]}" for name in selected_files])
+        relevant_context = "\n\n".join([f"--- SOURCE: {name} ---\n{available_docs[name]}" for name in selected_files])
 
         system_prompt_text = f"You are a professional portfolio assistant.\nKnowledge Base: {relevant_context}\n\n1. Answer the user's question directly and naturally.\n2. You MUST use exact, verbatim phrases from the Knowledge Base to support your claims.\n3. Do NOT use markdown bold (**) or italics or any marks to specify which part are from knowledge.\n4. Always refer to the portfolio owner in the third person (he, him, his, Khuong) and NEVER use first-person pronouns (I, me, my, mine).\n5. Do not just dump raw text; synthesize the answer."
 

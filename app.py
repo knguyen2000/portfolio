@@ -18,7 +18,7 @@ from utils.sidebar import render_sidebar
 
 from components.chat_renderer import render_chat_history, render_document_viewer
 from components.agent_dispatch import generate_answer
-from utils.pr_db import init_db
+from utils.guestbook_db import init_db
 from components.editor_panel import render_editor_panel
 
 # --- Page Config ---
@@ -89,7 +89,7 @@ try:
                 st.rerun()
 
             if st.session_state.verify_enabled:
-                st.markdown("<p style='text-align: center; color: gray; font-size: 0.85em;'><i>In your next prompt, click highlighted text to see source (might take a while)</i></p>", unsafe_allow_html=True)
+                st.markdown("<p style='text-align: center; color: gray; font-size: 0.85em;'><i>Click highlighted text in the answers to see the source and suggest edits to my portfolio!</i></p>", unsafe_allow_html=True)
 
             if agent_mode == MODE_FILE_BASED:
                 st.markdown(f"<p style='{WARNING_STYLE}'>⚠️ Least efficient mode, consumes most tokens. Good for small docs, but slow for large portfolios.</p>", unsafe_allow_html=True)
@@ -101,11 +101,12 @@ try:
         with col_center:
             st.markdown(f"<p style='{WARNING_STYLE}'>⚠️ Full data access, but takes long time to conclude final answer and more likely to get hallucinate (can be traced in thinking status)</p>", unsafe_allow_html=True)
 
-    # --- Dynamic Column Layout ---
+    # Always use columns to keep the DOM context stable across reruns.
+    # When the doc panel is closed, the chat column simply takes the full width.
     if st.session_state.view_doc:
         col_chat, col_docs = st.columns([3, 2])
     else:
-        col_chat = st.container()
+        (col_chat,) = st.columns([1])  # Full width; single col keeps DOM context stable
         col_docs = None
 
     # ------------------------------------------------------------------

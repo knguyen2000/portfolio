@@ -54,13 +54,16 @@ files = re.findall(r"<file name='(.*?)'>", context)
 print("Available files:", files)
 ```
 
-2. Targeted file read ("Zoom in") — once you know a relevant filename.
+2. Targeted file read ("Zoom in") — once you know a relevant filename. NEVER print large texts to the console! Pass them to a sub-LLM.
 ```repl
 target = "grace.md"
 pattern = fr"<file name='[^']*{re.escape(target)}'>\\n(.*?)\\n</file>"
 match = re.search(pattern, context, re.DOTALL)
 if match:
-    print(match.group(1)[:3000])
+    text = match.group(1)
+    # Ask the sub-LLM to find the specific answer instead of flooding your own observation history!
+    ans = llm_query(f"Read this text and answer the user's query:\\n\\n{text[:5000]}")
+    print("Sub-LLM Analysis:", ans)
 ```
 
 3. Iterative scan ("Serial read") — for keyword searches across everything.
@@ -68,8 +71,9 @@ if match:
 sections = context.split("</file>")
 for s in sections:
     if "keyword" in s.lower():
-        print(s[:800])
-        print("----")
+        # Let the sub-LLM do the semantic reading
+        ans = llm_query(f"Does this section answer the query? If yes, what is the answer?\\n{s[:2000]}")
+        print(ans)
 ```
 
 4. Batched Map-Reduce ("Global scan") — for broad synthesis questions.
@@ -85,8 +89,8 @@ FINAL_VAR(summary)
 
 RULES:
 - Always start by listing files before diving in, unless the user names a file directly.
-- When a file is identified, read it with a regex slice rather than scanning the whole context.
-- Use `llm_query` for reasoning over text; use Python for search, counting, and control flow.
+- When a file is identified, read it with a regex slice, but DO NOT `print()` the raw text. You MUST pass the raw text to `llm_query()` to extract the answer.
+- Printing large raw texts will cause you to lose focus. Let your sub-LLMs (`llm_query`) do the heavy reading.
 - STOP generating immediately after closing a ```repl``` block. Do NOT predict or simulate the output — wait for the system to return the observation.
 - Your FINAL(...) or FINAL_VAR(...) line must NOT be inside a code fence.
 

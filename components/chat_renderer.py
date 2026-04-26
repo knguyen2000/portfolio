@@ -32,12 +32,18 @@ def render_chat_history():
                     continue
 
                 # Click-to-verify rendering
-                current_val = click_detector(msg["html_content"], key=f"msg_{i}")
-                prev_val = st.session_state.clicked_states.get(i)
+                # Use a static key but wrap in st.empty() to force clean React unmounting during layout shifts
+                # This fixes the Streamlit custom component DOM duplication bug without causing ghosting
+                placeholder = st.empty()
+                with placeholder:
+                    current_val = click_detector(msg["html_content"], key=f"msg_{i}")
+                
+                # Fetch prev_val using the static key
+                prev_val = st.session_state.clicked_states.get(f"msg_{i}")
 
                 if current_val and current_val != prev_val:
                     log_event(f"New click detected on msg_{i}: {current_val[:30]}...")
-                    st.session_state.clicked_states[i] = current_val
+                    st.session_state.clicked_states[f"msg_{i}"] = current_val
 
                     parts = current_val.split(":::")
                     doc_name = parts[0]

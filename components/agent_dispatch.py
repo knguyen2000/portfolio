@@ -37,7 +37,10 @@ def generate_answer(client, agent_mode, prompt_text, docs, api_key):
             with st.status("🛠️ Vector RAG Working...", expanded=True) as status:
                 logger = _make_logger(status, steps_log)
                 agent = VectorRAGAgent(client, MODEL_ID, api_key=api_key, docs=raw_docs, log_callback=logger)
-                response_text, token_stats = agent.completion(prompt_text)
+                response_text, token_stats = agent.completion(
+                    prompt_text, 
+                    verify_enabled=st.session_state.verify_enabled
+                )
                 status.update(label="Vector Retrieval Complete!", state="complete", expanded=False)
 
         else:  # MODE_FILE_BASED
@@ -67,3 +70,5 @@ def generate_answer(client, agent_mode, prompt_text, docs, api_key):
     except Exception as e:
         log_event(f"Error: {e}")
         st.error(f"Error communicating with Gemini: {e}")
+        # Append an error response to cap the conversation turn and prevent infinite retries
+        append_response(f"Sorry, the Gemini API encountered an error (e.g. 500 Internal Error). Please try your prompt again.", html_content=None)

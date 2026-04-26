@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 
 DB_DIR = os.path.join("data", "db")
-DB_PATH = os.path.join(DB_DIR, "pr_system.db")
+DB_PATH = os.path.join(DB_DIR, "guestbook.db")
 
 def get_connection():
     if not os.path.exists(DB_DIR):
@@ -81,7 +81,7 @@ def log_audit(action, user_id, target_id):
     conn.close()
 
 def create_change_request(document_id, original_content, proposed_content, user_id):
-    """Creates a new PR with the original and proposed versions."""
+    """Creates a new change request with the original and proposed versions."""
     conn = get_connection()
     cursor = conn.cursor()
     
@@ -106,17 +106,17 @@ def create_change_request(document_id, original_content, proposed_content, user_
     """, (proposed_version_id, document_id, proposed_content, user_id, datetime.now().isoformat(), False))
     
     # 4. Create Change Request
-    pr_id = str(uuid.uuid4())
+    request_id = str(uuid.uuid4())
     cursor.execute("""
         INSERT INTO change_requests (id, document_id, base_version_id, proposed_version_id, created_by, status)
         VALUES (?, ?, ?, ?, ?, ?)
-    """, (pr_id, document_id, base_version_id, proposed_version_id, user_id, "in_review"))
+    """, (request_id, document_id, base_version_id, proposed_version_id, user_id, "in_review"))
     
     conn.commit()
     conn.close()
     
-    log_audit("create_pr", user_id, pr_id)
-    return pr_id
+    log_audit("create_request", user_id, request_id)
+    return request_id
 
 def get_open_change_requests():
     conn = get_connection()
@@ -134,17 +134,17 @@ def get_open_change_requests():
     conn.close()
     return [dict(row) for row in rows]
 
-def update_change_request_status(pr_id, status, user_id):
+def update_change_request_status(request_id, status, user_id):
     conn = get_connection()
     cursor = conn.cursor()
     
     if status == 'merged':
         cursor.execute("UPDATE change_requests SET status = ?, merged_by = ?, merged_at = ? WHERE id = ?",
-                       (status, user_id, datetime.now().isoformat(), pr_id))
+                       (status, user_id, datetime.now().isoformat(), request_id))
     else:
-        cursor.execute("UPDATE change_requests SET status = ? WHERE id = ?", (status, pr_id))
+        cursor.execute("UPDATE change_requests SET status = ? WHERE id = ?", (status, request_id))
         
     conn.commit()
     conn.close()
     
-    log_audit(f"update_pr_{status}", user_id, pr_id)
+    log_audit(f"update_request_{status}", user_id, request_id)

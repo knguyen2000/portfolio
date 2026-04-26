@@ -1,7 +1,7 @@
 import streamlit as st
 import streamlit.components.v1 as components
 import difflib
-from utils.pr_db import get_open_change_requests, update_change_request_status
+from utils.guestbook_db import get_open_change_requests, update_change_request_status
 
 def generate_html_diff(base_content, proposed_content):
     differ = difflib.HtmlDiff()
@@ -27,43 +27,52 @@ def generate_html_diff(base_content, proposed_content):
     """
     return html_diff.replace("<head>", f"<head>{custom_css}")
 
-def render_pr_dashboard(docs):
-    st.header("Pull Requests Dashboard")
+def render_guestbook(docs):
+    st.header("Community Guestbook")
     
-    prs = get_open_change_requests()
+    st.markdown("""
+    **Welcome!** This is a living document shaped by people who visit this portfolio. 
+    Read what others have suggested below, or leave your own message!
     
-    if not prs:
-        st.info("No open Change Requests.")
+    *To leave a message, go to the **Chat** page, turn on **Verify Sources**, and ask the AI about the guestbook. Click the highlighted text in the response to suggest an edit!*
+    """)
+    
+    st.markdown("---")
+    
+    requests = get_open_change_requests()
+    
+    if not requests:
+        st.info("No open Edit Suggestions.")
         return
         
-    for pr in prs:
-        with st.expander(f"PR: {pr['document_id']} by {pr['created_by']}"):
-            st.write(f"**Status:** {pr['status']}")
+    for req in requests:
+        with st.expander(f"Suggestion for: {req['document_id']} by {req['created_by']}"):
+            st.write(f"**Status:** {req['status']}")
             
             # Show diff
             st.subheader("Changes")
-            diff_html = generate_html_diff(pr['base_content'], pr['proposed_content'])
+            diff_html = generate_html_diff(req['base_content'], req['proposed_content'])
             components.html(diff_html, height=400, scrolling=True)
             
             # Review Actions
             if st.session_state.get("user_role") in ["Reviewer", "Admin"]:
                 col1, col2 = st.columns([1, 1])
                 with col1:
-                    if st.button("Reject", key=f"reject_{pr['id']}", type="secondary", use_container_width=True):
-                        update_change_request_status(pr['id'], "rejected", st.session_state.user_role)
+                    if st.button("Reject", key=f"reject_{req['id']}", type="secondary", use_container_width=True):
+                        update_change_request_status(req['id'], "rejected", st.session_state.user_role)
                         st.rerun()
                 with col2:
-                    if st.button("Approve & Merge", key=f"approve_{pr['id']}", type="primary", use_container_width=True):
-                        update_change_request_status(pr['id'], "merged", st.session_state.user_role)
+                    if st.button("Approve & Apply", key=f"approve_{req['id']}", type="primary", use_container_width=True):
+                        update_change_request_status(req['id'], "merged", st.session_state.user_role)
                         
                         # Apply changes to actual file (this assumes file exists in data directory)
-                        doc_id = pr['document_id']
+                        doc_id = req['document_id']
                         import os
                         doc_path = os.path.join("data", doc_id)
                         try:
                             with open(doc_path, "w", encoding="utf-8") as f:
-                                f.write(pr['proposed_content'])
-                            st.success(f"Merged and updated file: {doc_path}")
+                                f.write(req['proposed_content'])
+                            st.success(f"Applied suggestion to file: {doc_path}")
                             
                             # Clear cache
                             st.cache_data.clear()

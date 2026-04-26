@@ -22,7 +22,7 @@ class VectorRAGAgent:
         if self.log_callback:
             self.log_callback(msg)
 
-    def completion(self, user_query):
+    def completion(self, user_query, verify_enabled=False):
         """
         Executes standard Vector RAG.
         Returns: (response_text, token_stats)
@@ -103,6 +103,9 @@ class VectorRAGAgent:
         Answer based ONLY on the context provided.
         If the answer is not in the context, say "I couldn't find that in the database."
         """
+
+        if verify_enabled:
+            system_prompt += "\n\nCRITICAL: Answer naturally and conversationally, but you MUST embed exact, verbatim phrases from the context into your sentences. Do not just dump raw text, but ensure your core facts are exact substring matches so the Trace Engine can highlight them."
 
         self.log("Generating answer...")
         chat = self.client.chats.create(

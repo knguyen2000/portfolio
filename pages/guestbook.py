@@ -1,10 +1,10 @@
 import streamlit as st
 from utils.sidebar import render_sidebar
-from components.pr_dashboard import render_pr_dashboard
+from components.guestbook import render_guestbook
 from engines.trace_engine import load_corpus
 import os
 
-st.set_page_config(layout="wide", page_title="PR Dashboard", page_icon="🛠️")
+st.set_page_config(layout="wide", page_title="Community Guestbook", page_icon="📝")
 
 render_sidebar()
 
@@ -17,4 +17,4 @@ def get_cached_corpus():
 docs = get_cached_corpus()
 
 # Render Dashboard
-render_pr_dashboard(docs)
+render_guestbook(docs)
