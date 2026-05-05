@@ -57,6 +57,44 @@ def render_chat_history():
                     log_event("Click processed -> Rerunning")
                     st.rerun()
 
+    # Workflow Intelligence Consent UX
+    if st.session_state.get("pending_concern"):
+        concern = st.session_state.pending_concern
+        st.markdown("---")
+        with st.chat_message("assistant"):
+            st.warning("💡 It sounds like this may be a workflow pain point or feature request.")
+            st.write("Would you like to share this with Khuong as feedback?")
+            
+            with st.form(key="concern_form"):
+                quote = st.text_area("Feedback details", value=concern.get("original_quote", ""), height=100)
+                
+                col1, col2, col3 = st.columns([1, 1, 1])
+                with col1:
+                    submit = st.form_submit_button("✅ Submit", type="primary", use_container_width=True)
+                with col2:
+                    anon = st.form_submit_button("👻 Submit Anonymously", use_container_width=True)
+                with col3:
+                    cancel = st.form_submit_button("❌ Do not submit", use_container_width=True)
+                    
+                if submit or anon:
+                    from utils.workflow_db import insert_concern
+                    concern["original_quote"] = quote
+                    if anon:
+                        concern["affected_role"] = "Anonymous Visitor"
+                    insert_concern(concern, quote)
+                    
+                    # Update the last assistant message to acknowledge submission
+                    for m in reversed(st.session_state.messages):
+                        if m["role"] == "assistant":
+                            m["content"] = f"Thank you for the feedback! I've recorded this as a **{concern.get('category', 'pain point')}** for Khuong to review."
+                            break
+                    
+                    st.session_state.pending_concern = None
+                    st.rerun()
+                elif cancel:
+                    st.session_state.pending_concern = None
+                    st.rerun()
+
 def render_document_viewer(docs):
     """Renders the source document preview pane on the right."""
     if st.session_state.view_doc:

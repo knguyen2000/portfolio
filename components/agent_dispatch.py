@@ -5,6 +5,7 @@ from engines.trace_engine import find_maximal_matches
 from agents.rlm.rlm_agent import RLMAgent
 from agents.vector.vector_agent import VectorRAGAgent
 from agents.file_based.file_based_agent import FileBasedAgent
+from components.workflow_intelligence import detect_concern
 
 def _make_logger(status, steps_log):
     """Creates a closure that writes to a Streamlit status widget, debug log, and steps list."""
@@ -63,12 +64,36 @@ def generate_answer(client, agent_mode, prompt_text, docs, api_key):
         
         st.session_state.last_html_debug = traced_html
         
+        # --- Workflow Intelligence: Detect Concern ---
+        # Run in a separate try/except so failures here never block the chat response
+        try:
+            log_event("Workflow Intelligence: Analyzing message...")
+            concern_data = detect_concern(client, prompt_text)
+            log_event(f"Workflow Intelligence result: is_concern={concern_data.get('is_concern')}, category={concern_data.get('category')}")
+            if concern_data and concern_data.get("is_concern"):
+                concern_data["original_quote"] = prompt_text
+                st.session_state.pending_concern = concern_data
+                log_event(f"Pending concern set: {concern_data.get('category')}")
+            else:
+                # Clear any stale pending concern from a previous turn
+                st.session_state.pending_concern = None
+        except Exception as wi_e:
+            log_event(f"Workflow Intelligence error (non-fatal): {wi_e}")
+            st.session_state.pending_concern = None
+
         # --- Clean Final Rendering ---
         log_event("Appended AI msg -> Rerunning")
         append_response(response_text, html_content=traced_html, debug_steps=steps_log, token_usage=token_stats)
 
     except Exception as e:
         log_event(f"Error: {e}")
-        st.error(f"Error communicating with Gemini: {e}")
-        # Append an error response to cap the conversation turn and prevent infinite retries
-        append_response(f"Sorry, the Gemini API encountered an error (e.g. 500 Internal Error). Please try your prompt again.", html_content=None)
+        err_str = str(e)
+        if "500" in err_str or "Internal" in err_str:
+            user_msg = "The AI model hit a temporary server hiccup (500). This usually clears up in a few seconds — please try sending your message again!"
+        elif "429" in err_str or "quota" in err_str.lower() or "rate" in err_str.lower():
+            user_msg = "The AI is getting a lot of requests right now (rate limit). Please wait a moment and try again."
+        elif "503" in err_str or "UNAVAILABLE" in err_str:
+            user_msg = "The AI model is temporarily unavailable. Please try again in a few seconds."
+        else:
+            user_msg = f"Something went wrong while thinking through your question. Please try again — and if it keeps happening, try switching to a different agent mode."
+        append_response(user_msg, html_content=None)

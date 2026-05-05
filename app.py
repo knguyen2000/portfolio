@@ -19,6 +19,7 @@ from utils.sidebar import render_sidebar
 from components.chat_renderer import render_chat_history, render_document_viewer
 from components.agent_dispatch import generate_answer
 from utils.guestbook_db import init_db
+from utils.workflow_db import init_db as init_workflow_db
 from components.editor_panel import render_editor_panel
 
 # --- Page Config ---
@@ -42,7 +43,13 @@ def get_cached_corpus(mtime: float):
     return load_corpus()
 
 # By passing the latest mtime, the cache automatically invalidates if any file is edited manually!
-docs = get_cached_corpus(get_dir_mtime("data"))
+_raw_docs = get_cached_corpus(get_dir_mtime("data"))
+
+# Exclude internal-only files that are not meant for user-facing RAG retrieval.
+# portfolio_capabilities.md is used only by the Workflow Intelligence classifier;
+# including it causes the AI to see near-duplicate content and repeat answers.
+_INTERNAL_DOCS = {"data/portfolio_capabilities.md", "data\\portfolio_capabilities.md"}
+docs = {k: v for k, v in _raw_docs.items() if k not in _INTERNAL_DOCS}
 
 # --- LLM Setup ---
 api_key = st.secrets.get("GOOGLE_API_KEY") or os.getenv("GOOGLE_API_KEY")
@@ -57,6 +64,7 @@ else:
 # --- Session State ---
 init_session_state()
 init_db()
+init_workflow_db()
 
 # --- Sidebar ---
 render_sidebar()
@@ -84,7 +92,7 @@ try:
         with col_center:
             btn_label = "✅ Verify ON" if st.session_state.verify_enabled else "🔍 Verify Sources"
             btn_type = "primary" if st.session_state.verify_enabled else "secondary"
-            if st.button(btn_label, type=btn_type, use_container_width=True):
+            if st.button(btn_label, type=btn_type, use_container_width=True, key="verify_sources_btn"):
                 st.session_state.verify_enabled = not st.session_state.verify_enabled
                 st.rerun()
 
@@ -115,6 +123,16 @@ try:
     with col_chat:
         render_chat_history()
 
+        # ------------------------------------------------------------------
+        # Generate Answer
+        # ------------------------------------------------------------------
+        if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
+            if client:
+                prompt_text = st.session_state.messages[-1]["content"]
+                generate_answer(client, agent_mode, prompt_text, docs, api_key)
+            else:
+                st.error("AI model not configured.")
+
     # ------------------------------------------------------------------
     # Chat Input
     # ------------------------------------------------------------------
@@ -123,16 +141,6 @@ try:
         st.session_state.messages.append({"role": "user", "content": prompt})
         log_event("Appended user msg -> Rerunning")
         st.rerun()
-
-    # ------------------------------------------------------------------
-    # Generate Answer
-    # ------------------------------------------------------------------
-    if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
-        if client:
-            prompt_text = st.session_state.messages[-1]["content"]
-            generate_answer(client, agent_mode, prompt_text, docs, api_key)
-        else:
-            st.error("AI model not configured.")
 
     # ------------------------------------------------------------------
     # Document Viewer Panel

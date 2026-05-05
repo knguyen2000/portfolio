@@ -16,10 +16,13 @@ sequenceDiagram
     participant G as Google Gemini API
     participant S as state.py
     participant R as chat_renderer.py
+    participant WI as workflow_intelligence.py
+    participant WDB as workflow_db.py
 
     Note over A,E: Phase 0: Initialization
     A->>E: load_corpus()
     A->>S: init_session_state()
+    A->>WDB: init_db()
     A->>A: Inject APP_CSS
     
     U->>A: st.chat_input("Prompt")
@@ -51,6 +54,15 @@ sequenceDiagram
             D->>E: find_maximal_matches(text, docs)
             E-->>D: traced_html
         end
+
+        Note over D,WDB: Phase 6.5: Workflow Intelligence
+        D->>WI: detect_concern(client, prompt_text)
+        WI->>G: generate_content (Gemini, JSON mode)
+        G-->>WI: concern JSON
+        WI-->>D: concern_data
+        alt is_concern == true
+            D->>S: session_state.pending_concern = concern_data
+        end
         
         D->>S: append_response(text, html, debug, tokens)
         S->>A: st.rerun()
@@ -58,6 +70,12 @@ sequenceDiagram
 
     A->>R: render_chat_history()
     R->>R: st_click_detector(traced_html)
+    opt pending_concern set
+        R-->>U: Consent UI form
+        U->>R: Submit / Submit Anonymously / Discard
+        R->>WDB: insert_concern(concern_data, quote)
+        R->>S: pending_concern = None + st.rerun()
+    end
     R-->>U: Final UI Bubble
 ```
 
@@ -132,6 +150,38 @@ sequenceDiagram
     *   Calculates a **Context Snippet** (±1000 chars around the match).
     *   Injects a CSS-styled `<span>` to highlight the specific phrase within the document.
 
+## Phase 6.5: Workflow Intelligence
+**Files:** [workflow_intelligence.py](file:///c:/Users/khuon/portfolio/components/workflow_intelligence.py) · [workflow_db.py](file:///c:/Users/khuon/portfolio/utils/workflow_db.py)
+
+After the agent produces its answer but **before** `append_response` triggers a rerun, the dispatch layer runs a lightweight LLM classifier on the *user's message* (not the answer).
+
+1.  **`detect_concern(client, message_text)`** ([workflow_intelligence.py](file:///c:/Users/khuon/portfolio/components/workflow_intelligence.py)):
+    *   Loads `data/portfolio_capabilities.md` as ground truth so the classifier can distinguish *existing* features from *missing* ones.
+    *   Sends a structured prompt to Gemini (using `_generate_content_with_fallback` with retry + model fallback).
+    *   Returns a concern dict with keys: `is_concern`, `category`, `workflow_stage`, `affected_role`, `root_cause`, `tool_match`, `analysis`.
+    *   **Non-blocking**: any exception returns `{"is_concern": False}` so the chat is never affected.
+2.  **`pending_concern` session state flag**: Set in `agent_dispatch.py` if `is_concern == True`; cleared to `None` if not, so stale concerns from previous turns never leak.
+3.  **Consent UI** ([chat_renderer.py](file:///c:/Users/khuon/portfolio/components/chat_renderer.py)):
+    *   Rendered at the bottom of `render_chat_history()` whenever `pending_concern` is set.
+    *   Options: Submit, Submit Anonymously, Do not submit.
+    *   On submit → calls `insert_concern()` and rewrites the last assistant message to confirm the action.
+4.  **`insert_concern(concern_data, quote)`** ([workflow_db.py](file:///c:/Users/khuon/portfolio/utils/workflow_db.py)):
+    *   Persists to the `feedback_concerns` SQLite table with status `unresolved`.
+
+### Admin Review Dashboard
+**File:** [feedback_dashboard.py](file:///c:/Users/khuon/portfolio/pages/feedback_dashboard.py)
+
+Gated behind Admin login. Provides four tabs:
+
+| Tab | Purpose |
+|---|---|
+| Unresolved Concerns | Triage view grouped by category. Per-concern checkboxes, Mark Solved, and Discard (with optional reason). |
+| Backlog Candidates | AI-generated structured tickets drafted from selected concerns via `generate_backlog_candidate()`. |
+| Metrics | Live counts of Total / Unresolved / Solved / Discarded / In Backlog concerns. |
+| Audit Log | Chronological feed of every status transition with timestamp, note, and source quote. |
+
+Status lifecycle: `unresolved` → `solved` | `discarded` | `accepted_to_backlog`
+
 ---
 
 ## Function Directory
@@ -156,3 +206,15 @@ sequenceDiagram
 | **State** | `log_event` | `state.py` | Timestamped event logging. |
 | **UI** | `st_click_detector` | `components/chat_renderer.py`| Handles verification clicks. |
 | **UI** | `render_document_viewer`| `components/chat_renderer.py`| Shows source file + highlight snippet. |
+| **WI** | `detect_concern` | `components/workflow_intelligence.py`| Classifies user message into concern type. |
+| **WI** | `generate_backlog_candidate`| `components/workflow_intelligence.py`| Drafts structured backlog ticket from concerns. |
+| **WI** | `_generate_content_with_fallback`| `components/workflow_intelligence.py`| Gemini call with 503 retry + model fallback. |
+| **WI** | `_load_capabilities` | `components/workflow_intelligence.py`| Loads portfolio UI ground truth for classifier. |
+| **WI** | `insert_concern` | `utils/workflow_db.py` | Persists a new concern to SQLite. |
+| **WI** | `mark_concern_resolved`| `utils/workflow_db.py` | Sets status to `solved` and logs action. |
+| **WI** | `discard_concern` | `utils/workflow_db.py` | Sets status to `discarded` with reason. |
+| **WI** | `mark_concern_accepted`| `utils/workflow_db.py` | Links concern to a backlog candidate. |
+| **WI** | `insert_backlog_candidate`| `utils/workflow_db.py` | Persists AI-drafted backlog ticket. |
+| **WI** | `log_activity` | `utils/workflow_db.py` | Writes action to immutable audit log. |
+| **WI** | `get_activity_log` | `utils/workflow_db.py` | Retrieves audit log joined with concern data. |
+| **WI** | `init_db` | `utils/workflow_db.py` | Creates all 3 WI tables on first boot. |

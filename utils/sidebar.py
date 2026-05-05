@@ -61,6 +61,8 @@ def render_sidebar():
         st.page_link("pages/projects.py", label="Projects", icon="🛋️", use_container_width=True)
         st.page_link("pages/gallery.py", label="Gallery", icon="🖼️", use_container_width=True)
         st.page_link("pages/guestbook.py", label="Community Guestbook", icon="📝", use_container_width=True)
+        if st.session_state.get("user_role") == "Admin":
+            st.page_link("pages/feedback_dashboard.py", label="Review Dashboard", icon="⚙️", use_container_width=True)
         
         st.markdown("---")
         
