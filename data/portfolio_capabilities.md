@@ -34,12 +34,15 @@ The sidebar contains:
 
 - **Header**: "Hey there! Ask me anything about Khuong"
 - **Agent Mode selector** — three radio button options at the top:
-  - File-Based Context: loads all raw documents into context; token-heavy but thorough
-  - Recursive Language Model (RLM): iterative reasoning agent; default mode
-  - Standard RAG (Vector + Sliding Window): fast, low-token retrieval mode
-- **Verify Sources toggle button** — appears below the agent mode selector for File-Based and RAG modes.
-  - Default: OFF ("🔍 Verify Sources")
-  - When ON: "✅ Verify ON" — the AI's responses highlight phrases that are grounded in source documents. Clicking a highlighted phrase opens the source document on the right side of the screen.
+  - Recursive Language Model (RLM): iterative reasoning agent; default mode.
+  - Standard RAG (Vector + Sliding Window): fast, low-token retrieval mode.
+  - File-Based Context: loads all raw documents into context; thorough but token-heavy.
+- **Feature Bar** — a row of buttons below the mode selector:
+  - **Reasoning Mode toggle** (Thinking vs Instant):
+    - **🧠 Thinking Mode**: The AI pauses to analyze your intent and ask for clarification if your question is ambiguous.
+    - **⚡ Instant Mode**: The AI skips the analysis and generates an answer immediately.
+  - **Verify Sources toggle** (appears for RAG and File-Based modes):
+    - When ON ("✅ Verify: ON"), the AI highlights phrases in its response that are verbatim matches from source documents. Clicking these highlights opens the document viewer.
 - **Chat input box** at the bottom — type any question about Khuong here.
 - **Document viewer panel** (right side, only visible when Verify Sources is ON and a user clicks a highlighted phrase):
   - Shows the original source document with the matched phrase highlighted in green.

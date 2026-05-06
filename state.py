@@ -23,6 +23,10 @@ def init_session_state():
         st.session_state.editing_doc = None
     if "pending_concern" not in st.session_state:
         st.session_state.pending_concern = None
+    if "pending_checkpoint" not in st.session_state:
+        st.session_state.pending_checkpoint = None
+    if "checkpoint_enabled" not in st.session_state:
+        st.session_state.checkpoint_enabled = True
 
 def log_event(msg: str):
     """Appends a timestamped message to the debug log and prints it."""

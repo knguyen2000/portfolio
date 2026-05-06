@@ -49,7 +49,8 @@ def _generate_content_with_fallback(client, prompt: str) -> str:
         for attempt in range(2):
             try:
                 response = client.models.generate_content(model=model, contents=prompt)
-                return response.text
+                tokens = response.usage_metadata.total_token_count if hasattr(response, "usage_metadata") and response.usage_metadata else 0
+                return response.text, tokens
             except Exception as e:
                 last_error = e
                 if "503" in str(e) or "UNAVAILABLE" in str(e):
@@ -110,11 +111,12 @@ def detect_concern(client, message_text: str) -> dict:
     User Message: "{message_text}"
     """
     try:
-        text = _generate_content_with_fallback(client, prompt)
-        return _extract_json(text)
+        text, tokens = _generate_content_with_fallback(client, prompt)
+        result = _extract_json(text)
+        return result, tokens
     except Exception as e:
         print(f"[workflow_intelligence] detect_concern error (non-fatal): {e}")
-        return {"is_concern": False}
+        return {"is_concern": False}, 0
 
 
 def generate_backlog_candidate(client, concerns_list: list) -> dict:
@@ -148,5 +150,5 @@ def generate_backlog_candidate(client, concerns_list: list) -> dict:
         "acceptance_criteria": "Comma-separated list of acceptance criteria"
     }}
     """
-    text = _generate_content_with_fallback(client, prompt)
+    text, _ = _generate_content_with_fallback(client, prompt)
     return _extract_json(text)

@@ -60,6 +60,9 @@ class FileBasedAgent:
 
             router_chat = self.client.chats.create(model=self.model_id)
             router_response = router_chat.send_message(router_prompt)
+            
+            if hasattr(router_response, "usage_metadata") and router_response.usage_metadata:
+                self.token_usage['total'] += router_response.usage_metadata.total_token_count or 0
 
             selected_files = list(available_docs.keys())
             try:

@@ -1,8 +1,116 @@
+"""
+Chat Renderer — Renders the conversation history, checkpoint cards, and
+Workflow Intelligence consent UI.
+"""
 import streamlit as st
 import urllib.parse
 from st_click_detector import click_detector
 from config.app_config import HIGH_TOKEN_WARNING_THRESHOLD
 from state import log_event
+
+
+# ---------------------------------------------------------------------------
+# Checkpoint card renderer
+# ---------------------------------------------------------------------------
+
+_CHECKPOINT_ICONS = {
+    "interpretation_confirmation": "🔍",
+    "direction_choice": "🧭",
+    "assumption_confirmation": "💡",
+}
+
+
+def _render_checkpoint_card(checkpoint: dict, msg_index: int):
+    """Render an interactive checkpoint card with action buttons."""
+    ckpt_type = checkpoint.get("checkpoint_type", "")
+    icon = _CHECKPOINT_ICONS.get(ckpt_type, "🔍")
+    interpretation = checkpoint.get("model_interpretation", "")
+    question = checkpoint.get("question", "Is this correct?")
+    options = checkpoint.get("options")
+    is_active = (st.session_state.get("pending_checkpoint") and
+                 st.session_state.pending_checkpoint.get("checkpoint_id") == checkpoint.get("checkpoint_id"))
+
+    # Card header
+    if ckpt_type == "interpretation_confirmation":
+        st.info(f"{icon} **Before I answer, let me confirm my understanding...**")
+        st.markdown(f"I interpreted your question as:\n\n> *{interpretation}*")
+    elif ckpt_type == "direction_choice":
+        st.info(f"{icon} **There are a few ways I could approach this...**")
+        st.markdown(f"My initial read: *{interpretation}*")
+    elif ckpt_type == "assumption_confirmation":
+        st.info(f"{icon} **I'd like to confirm an assumption before answering...**")
+        st.markdown(f"I'm assuming: *{interpretation}*")
+
+    st.markdown(f"**{question}**")
+
+    # Options display (for direction_choice)
+    if options and len(options) > 1 and is_active:
+        st.markdown("Choose a direction:")
+        for opt in options:
+            st.markdown(f"- {opt}")
+
+    # Action buttons (only for the active/pending checkpoint)
+    if is_active:
+        with st.form(key=f"checkpoint_form_{msg_index}"):
+            # Edit field (shown inside the form)
+            edit_text = st.text_input(
+                "Clarify your intent (optional):",
+                value="",
+                placeholder="e.g., I meant specifically about backend experience...",
+                key=f"checkpoint_edit_{msg_index}",
+            )
+
+            # Direction choice selector
+            selected_option = None
+            if options and len(options) > 1:
+                selected_option = st.radio(
+                    "Pick a direction (optional):",
+                    options,
+                    index=None,  # Do not select by default
+                    key=f"checkpoint_option_{msg_index}",
+                    horizontal=True,
+                )
+
+            st.write("") # Spacer
+
+            col1, col2 = st.columns([1, 1])
+            with col1:
+                continue_btn = st.form_submit_button("Continue", type="primary", use_container_width=True)
+            with col2:
+                restart_btn = st.form_submit_button("❌ Start over", use_container_width=True)
+
+            if continue_btn:
+                checkpoint_data = st.session_state.pending_checkpoint
+                
+                # Determine user's intent based on what they filled out
+                if edit_text.strip():
+                    checkpoint_data["user_decision"] = "edited"
+                    checkpoint_data["user_edit"] = edit_text.strip()
+                elif selected_option:
+                    checkpoint_data["user_decision"] = "edited"
+                    checkpoint_data["user_edit"] = f"Focus on: {selected_option}"
+                else:
+                    checkpoint_data["user_decision"] = "approved"
+                    checkpoint_data["user_edit"] = ""
+                    
+                checkpoint_data["status"] = "user_responded"
+                st.session_state.pending_checkpoint = checkpoint_data
+                st.rerun()
+
+            elif restart_btn:
+                # Remove the checkpoint message and the user's original message
+                st.session_state.pending_checkpoint = None
+                # Remove the last two messages (user question + checkpoint card)
+                if len(st.session_state.messages) >= 2:
+                    st.session_state.messages = st.session_state.messages[:-2]
+                else:
+                    st.session_state.messages = []
+                st.rerun()
+
+
+# ---------------------------------------------------------------------------
+# Main chat history renderer
+# ---------------------------------------------------------------------------
 
 def render_chat_history():
     """Renders the chat history from session state and handles click detections."""
@@ -11,6 +119,11 @@ def render_chat_history():
             if msg["role"] == "user":
                 st.write(msg["content"])
             else:
+                # Check if this is a checkpoint message
+                if msg.get("checkpoint"):
+                    _render_checkpoint_card(msg["checkpoint"], i)
+                    continue
+
                 # Token usage
                 if "token_usage" in msg and msg["token_usage"]:
                     stats = msg["token_usage"]

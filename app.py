@@ -8,7 +8,7 @@ import os
 # --- Internal Imports ---
 from config.app_config import (
     PAGE_TITLE, PAGE_ICON, PAGE_LAYOUT,
-    MODE_FILE_BASED, MODE_VECTOR_RAG,
+    MODE_FILE_BASED, MODE_VECTOR_RAG, MODE_RLM,
     AVAILABLE_MODES, DEFAULT_MODE_INDEX,
 )
 from styles import APP_CSS, WARNING_STYLE
@@ -17,7 +17,7 @@ from engines.trace_engine import load_corpus
 from utils.sidebar import render_sidebar
 
 from components.chat_renderer import render_chat_history, render_document_viewer
-from components.agent_dispatch import generate_answer
+from components.agent_dispatch import generate_answer, check_and_set_checkpoint, resume_from_checkpoint
 from utils.guestbook_db import init_db
 from utils.workflow_db import init_db as init_workflow_db
 from components.editor_panel import render_editor_panel
@@ -86,28 +86,43 @@ try:
             index=DEFAULT_MODE_INDEX,
         )
 
-    # --- Mode Description & Verify Toggle ---
-    if agent_mode in (MODE_FILE_BASED, MODE_VECTOR_RAG):
-        _, col_center, _ = st.columns([1, 1, 1])
-        with col_center:
-            btn_label = "✅ Verify ON" if st.session_state.verify_enabled else "🔍 Verify Sources"
-            btn_type = "primary" if st.session_state.verify_enabled else "secondary"
-            if st.button(btn_label, type=btn_type, use_container_width=True, key="verify_sources_btn"):
-                st.session_state.verify_enabled = not st.session_state.verify_enabled
+    # --- Feature Bar (Reasoning & Verification) ---
+    _, col_center, _ = st.columns([1, 2, 1])
+    with col_center:
+        show_verify = agent_mode in (MODE_FILE_BASED, MODE_VECTOR_RAG)
+        feat_cols = st.columns(2) if show_verify else [st.container()] # Container for single centered button
+        
+        # 1. Reasoning Mode (Global)
+        with feat_cols[0]:
+            ckpt_on = st.session_state.get("checkpoint_enabled", True)
+            ckpt_label = "🧠 Thinking" if ckpt_on else "⚡ Instant"
+            # We use primary for Thinking to highlight it as the "enhanced" mode
+            ckpt_type = "primary" if ckpt_on else "secondary"
+            if st.button(ckpt_label, type=ckpt_type, use_container_width=True, key="ckpt_toggle_btn", help="Thinking: AI pauses to clarify. Instant: AI answers immediately."):
+                st.session_state.checkpoint_enabled = not ckpt_on
                 st.rerun()
+                
+        # 2. Verify Sources
+        if show_verify:
+            with feat_cols[1]:
+                verify_on = st.session_state.get("verify_enabled", False)
+                verify_label = "✅ Verify: ON" if verify_on else "🔍 Verify Sources"
+                verify_type = "primary" if verify_on else "secondary"
+                if st.button(verify_label, type=verify_type, use_container_width=True, key="verify_btn", help="Trace answers back to exact source documents"):
+                    st.session_state.verify_enabled = not verify_on
+                    st.rerun()
 
-            if st.session_state.verify_enabled:
-                st.markdown("<p style='text-align: center; color: gray; font-size: 0.85em;'><i>Click highlighted text in the answers to see the source and suggest edits to my portfolio!</i></p>", unsafe_allow_html=True)
+        # Help Text & Warnings
+        if st.session_state.get("verify_enabled") and show_verify:
+            st.markdown("<p style='text-align: center; color: gray; font-size: 0.85em; margin-top: -10px;'><i>Click highlighted text in answers to see sources!</i></p>", unsafe_allow_html=True)
 
-            if agent_mode == MODE_FILE_BASED:
-                st.markdown(f"<p style='{WARNING_STYLE}'>⚠️ Least efficient mode, consumes most tokens. Good for small docs, but slow for large portfolios.</p>", unsafe_allow_html=True)
-            elif agent_mode == MODE_VECTOR_RAG:
-                st.markdown(f"<p style='{WARNING_STYLE}'>⚡ Lowest token usage. Fast and cheap, but may miss context if retrieval fails (enable 'Verify Sources' to check).</p>", unsafe_allow_html=True)
-    else:
-        st.session_state.verify_enabled = False
-        _, col_center, _ = st.columns([1, 2, 1])
-        with col_center:
-            st.markdown(f"<p style='{WARNING_STYLE}'>⚠️ Full data access, but takes long time to conclude final answer and more likely to get hallucinate (can be traced in thinking status)</p>", unsafe_allow_html=True)
+        # Mode Description & Warnings
+        if agent_mode == MODE_FILE_BASED:
+            st.markdown(f"<p style='{WARNING_STYLE}'>⚠️ File-Based Mode: Stuff all raw data to context window. Can be efficent for small data but problematic when scale </p>", unsafe_allow_html=True)
+        elif agent_mode == MODE_VECTOR_RAG:
+            st.markdown(f"<p style='{WARNING_STYLE}'>⚡ Standard RAG: Lowest token usage. Fast and cheap, but may miss context if retrieval fails (enable 'Verify' to check).</p>", unsafe_allow_html=True)
+        elif agent_mode == MODE_RLM:
+            st.markdown(f"<p style='{WARNING_STYLE}'>🧠 RLM Mode: Likely consume most tokens and take longest to conclude final answer </p>", unsafe_allow_html=True)
 
     # Always use columns to keep the DOM context stable across reruns.
     # When the doc panel is closed, the chat column simply takes the full width.
@@ -124,12 +139,23 @@ try:
         render_chat_history()
 
         # ------------------------------------------------------------------
-        # Generate Answer
+        # Generate Answer (checkpoint-aware)
         # ------------------------------------------------------------------
-        if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
+        pending_ckpt = st.session_state.get("pending_checkpoint")
+
+        if pending_ckpt and pending_ckpt.get("status") == "user_responded":
+            # User responded to a checkpoint — resume generation
+            if client:
+                resume_from_checkpoint(client, agent_mode, docs, api_key)
+            else:
+                st.error("AI model not configured.")
+
+        elif st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
             if client:
                 prompt_text = st.session_state.messages[-1]["content"]
-                generate_answer(client, agent_mode, prompt_text, docs, api_key)
+                # Pre-generation checkpoint check (may set pending_checkpoint and rerun)
+                if not check_and_set_checkpoint(client, prompt_text):
+                    generate_answer(client, agent_mode, prompt_text, docs, api_key)
             else:
                 st.error("AI model not configured.")
 
@@ -138,6 +164,7 @@ try:
     # ------------------------------------------------------------------
     if prompt := st.chat_input("Ask about my skills..."):
         log_event("User Input received")
+        st.session_state.turn_tokens = 0
         st.session_state.messages.append({"role": "user", "content": prompt})
         log_event("Appended user msg -> Rerunning")
         st.rerun()

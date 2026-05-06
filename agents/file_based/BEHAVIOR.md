@@ -48,9 +48,8 @@ In the context of the free-tier Gemini API, **Routing is a survival mechanism.**
 
 ## TODO
 
-### 1. Auto-Summary Generation
-Currently, the agent relies on pre-generated summaries in `data/summaries/`. If a new file is added to root `data/` without a corresponding summary, the agent cannot see it in Router mode.
-- **Goal**: Implement a "Just-In-Time" summarizer that creates these files if they are missing.
+### 1. Dynamic Context Previews
+The agent now generates "Just-In-Time" previews (start, middle, end) of all raw documents for the Librarian step. This removes the dependency on the legacy `data/summaries/` folder and ensures any new file added to the corpus is immediately "discoverable" by the Router.
 
 ### 2. Pronoun Normalization
 (See Trace 1) Force third-person output via prompt engineering.

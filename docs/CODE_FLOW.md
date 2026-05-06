@@ -31,7 +31,20 @@ sequenceDiagram
     
     rect rgb(240, 240, 240)
         Note over A,R: Phase 1-5: The Generation Loop
-        A->>D: generate_answer(client, mode, prompt, docs)
+        A->>D: generate_answer / check_and_set_checkpoint
+        
+        opt IF checkpoint_enabled (Thinking Mode)
+            D->>Ckpt: should_checkpoint(client, prompt)
+            alt Checkpoint Needed
+                D->>S: pending_checkpoint = data
+                S->>A: st.rerun()
+                A->>R: show checkpoint card (wait for user)
+                U->>R: Continue (confirm/edit) / Start Over
+                R->>D: resume_from_checkpoint()
+                D->>Ckpt: build_resume_prompt()
+            end
+        end
+
         D->>AG: agent.completion(prompt)
         
         alt RLM Mode
@@ -58,13 +71,14 @@ sequenceDiagram
         Note over D,WDB: Phase 6.5: Workflow Intelligence
         D->>WI: detect_concern(client, prompt_text)
         WI->>G: generate_content (Gemini, JSON mode)
-        G-->>WI: concern JSON
-        WI-->>D: concern_data
+        G-->>WI: concern JSON + tokens
+        WI-->>D: concern_data, concern_tokens
+        D->>S: turn_tokens += concern_tokens
         alt is_concern == true
             D->>S: session_state.pending_concern = concern_data
         end
         
-        D->>S: append_response(text, html, debug, tokens)
+        D->>S: append_response(text, html, debug, {"total": turn_tokens})
         S->>A: st.rerun()
     end
 
@@ -126,7 +140,8 @@ sequenceDiagram
 ### File-Based Context
 **File:** [file_based_agent.py](file:///c:/Users/khuon/portfolio/agents/file_based/file_based_agent.py)
 *   **`completion(...)`**: Implements both "Fast" and "Router" modes.
-*   **Router Logic**: Extracts filenames from LLM output using `re.search(r'\[.*\]', ...)` to parse JSON.
+*   **Router Logic**: Performs an initial LLM call to identify relevant files from the corpus using small previews, then loads the full text of only those selected files. Router token usage is aggregated into the total turn cost.
+*   **JSON Parsing**: Extracts filenames from LLM output using `re.search(r'\[.*\]', ...)` to parse JSON.
 
 ## Phase 4: Verification (Trace Engine)
 **File:** [trace_engine.py](file:///c:/Users/khuon/portfolio/engines/trace_engine.py)
@@ -138,8 +153,9 @@ sequenceDiagram
     *   Wraps matches in clickable `<a>` tags with a `filename:::phrase` payload.
 
 ## Phase 5: State Persistence
-1.  **`append_response(content, html, ...)`** ([state.py](file:///c:/Users/khuon/portfolio/state.py)): Saves the assistant's turn.
-2.  **`st.rerun()`**: Triggers the final rendering pass.
+1.  **`st.session_state.turn_tokens`**: A global accumulator that sums tokens from the Checkpoint Engine, the Agent (including sub-calls), and Workflow Intelligence.
+2.  **`append_response(content, html, ...)`** ([state.py](file:///c:/Users/khuon/portfolio/state.py)): Saves the assistant's turn, including the **Total Lifecycle Token Cost**.
+3.  **`st.rerun()`**: Triggers the final rendering pass.
 
 ## Phase 6: Rendering & Interaction
 **File:** [chat_renderer.py](file:///c:/Users/khuon/portfolio/components/chat_renderer.py)
@@ -218,3 +234,8 @@ Status lifecycle: `unresolved` → `solved` | `discarded` | `accepted_to_backlog
 | **WI** | `log_activity` | `utils/workflow_db.py` | Writes action to immutable audit log. |
 | **WI** | `get_activity_log` | `utils/workflow_db.py` | Retrieves audit log joined with concern data. |
 | **WI** | `init_db` | `utils/workflow_db.py` | Creates all 3 WI tables on first boot. |
+| **Ckpt**| `should_checkpoint`| `components/checkpoint_engine.py`| Classifies if message needs a checkpoint pause. |
+| **Ckpt**| `build_resume_prompt`| `components/checkpoint_engine.py`| Enriches prompt with user checkpoint decision. |
+| **Ckpt**| `check_and_set_checkpoint`| `components/agent_dispatch.py` | Orchestrates pre-generation checkpoint gating. |
+| **Ckpt**| `resume_from_checkpoint`| `components/agent_dispatch.py` | Orchestrates resumption from a user decision. |
+| **Ckpt**| `_render_checkpoint_card`| `components/chat_renderer.py`  | Renders interactive UI for pending checkpoints. |

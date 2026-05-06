@@ -29,3 +29,11 @@ DEFAULT_MODE_INDEX = 2  # Vector RAG
 VECTOR_CONFIDENCE_HIGH = 70
 VECTOR_CONFIDENCE_LOW = 30
 VECTOR_CAUTION_THRESHOLD = 35
+
+# --- Checkpoint Config ---
+CHECKPOINT_ENABLED_DEFAULT = True
+CHECKPOINT_TYPES = [
+    "interpretation_confirmation",
+    "direction_choice",
+    "assumption_confirmation",
+]

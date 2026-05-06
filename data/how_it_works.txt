@@ -14,25 +14,23 @@ The application is built as a Python-first system with clear separation between 
 
 * **Runtime:** Python 3.11+ with state handled through `st.session_state`
 * **Frontend:** Streamlit with custom UI extensions where native components are too limiting
-* **LLM Backend:** Google GenAI SDK running `gemma-4-31b-it`
-* **Data Layer:** project content is stored outside execution logic, so content can evolve without changing application code
-* **Execution Model:** lightweight UI layer on top of heavier retrieval and routing services
+* **LLM Backend:** Google GenAI SDK running Gemini 2.0 Flash
+* **Data Layer:** Project content is stored outside execution logic in the `data/` directory, allowing the portfolio to evolve without code changes
+* **Execution Model:** Lightweight UI layer on top of heavier retrieval, routing, and verification services
 
 The main design idea is to keep the interface thin and move complexity into reusable system components.
 
 ## 3. Why Streamlit
 
-I built this in Streamlit because it matches how I usually build POCs for work and technical projects: get the UI working fast, keep everything in Python, and focus on the core system instead of frontend plumbing. Plus, I can just deloy my app with just a click of mouse.
+I built this in Streamlit because it matches how I usually build POCs for work and technical projects: get the UI working fast, keep everything in Python, and focus on the core system instead of frontend plumbing. Plus, I can deploy my app with a single push.
 
 For this project, the hard part is not rendering pages. The hard part is the AI stack behind it: retrieval quality, routing logic, state flow, latency, and verification. Streamlit lets me iterate on those quickly without first splitting the app into a React frontend, API layer, and Python backend.
 
 It also comes with tradeoffs:
 
-* the app reruns often, so expensive work must be isolated carefully
-* `st.session_state` is useful, but it is session memory, not durable persistence
-* state boundaries between UI, cache, and backend must be designed explicitly
-* custom frontend behavior sometimes requires injected HTML/CSS/JS
-* code structure can get messy fast if UI, services, and data flow are not separated cleanly
+* The app reruns often, so expensive work must be isolated via caching and session state
+* `st.session_state` handles session memory, but isn't a replacement for durable persistence
+* State boundaries between UI, cache, and backend must be designed explicitly
 
 Streamlit is not meant to behave like a fully custom frontend out of the box. To make the app feel closer to a product than a dashboard, I extended it with custom HTML, CSS, and JS for interaction patterns and presentation details that native components do not handle well.
 
@@ -40,64 +38,20 @@ Streamlit is not meant to behave like a fully custom frontend out of the box. To
 
 ### 1. Recursive Language Model (RLM)
 
-This is the mode I am most interested in right now. RLM is a newer retrieval and reasoning direction that started getting attention in early 2026 because people see it as a possible alternative to classic RAG for some workloads. I wanted to try it myself rather than just read about it.
-
-In this mode, retrieval is not treated as a one-shot vector lookup. The model can search iteratively, accumulate findings, and refine its answer over multiple steps. That makes it more flexible, but also slower and more expensive. I use it when I want to experiment with deeper reasoning rather than just fast context injection.
+This is the mode I am most interested in right now. RLM is an iterative reasoning direction where retrieval is not a one-shot lookup. The model can search iteratively, execute internal code to process data, and refine its answer over multiple steps. I use it when I want to experiment with deeper reasoning rather than just fast context injection.
 
 ### 2. Standard Vector RAG
 
-This is the efficient retrieval path.
-
-Here, the system takes large Markdown files and PDFs, splits them into small chunks, embeds those chunks into vectors, and stores them in ChromaDB. When a user asks a question, the system retrieves only the top few semantically relevant chunks. So instead of sending an entire 20-page document to the model, it may send only three chunks of about 500 tokens each.
-
-That means the LLM may only read around 1,500 tokens instead of 15,000 to 20,000. This is much cheaper and usually much faster. The tradeoff is that chunking can lose document-level structure, and semantic retrieval is only as good as the embedding and ranking behavio
+This is the efficient retrieval path. The system takes documents from the `data/` folder, chunks them using a sliding window, and indexes them in a ChromaDB vector store. When a user asks a question, it retrieves only the top few semantically relevant chunks. This is much faster and cheaper than loading full documents.
 
 ### 3. File-Based Context
 
-This is the brute-force baseline.
+This is the "Document-Level" retrieval path. Instead of chunking, it uses a two-pass "Librarian" flow:
 
-There is no vector database here. There is no chunk retrieval step. Instead, the system first asks an LLM router which summary files are relevant, then injects the full text of those selected files directly into the final prompt.
+1. **Pass 1 (Router):** The system generates small previews of all files in the `data/` directory and asks an LLM to identify which specific files are relevant to the user's query.
+2. **Pass 2 (Stuffing):** The system then loads the **full text** of only those selected files and injects them into the final prompt context.
 
-So if the router chooses grace.md and rag101.md, the system pastes the full content of those files into the prompt as context. That can become expensive very quickly. If each file is long, the request can easily reach 15,000 to 20,000 tokens.
-
-I built this mode on purpose as a simple baseline:
-no embeddings
-no vector store
-no chunk ranking
-just file selection plus direct prompt injection
-
-It is inefficient, but useful. It gives me a low-dependency baseline to compare against more advanced retrieval systems.
-
-Why File-Based Context Does Not Chunk
-
-File-Based Context does not chunk because chunking without a retrieval mechanism does not actually solve anything.
-
-In standard RAG, chunking works because each chunk is embedded and indexed. That gives the system a fast way to search over chunks and retrieve only the relevant ones.
-
-In File-Based mode, there is no vector index. So if I chunked the files anyway, I would still have no good way to know which chunk to send. At that point I would either:
-
-pass all chunks anyway, which defeats the point
-or build some custom chunk search logic, which is basically reinventing a weaker version of RAG
-
-So this mode stays intentionally simple. It exists as a baseline strategy: minimal infrastructure, direct context injection, and clear token tradeoffs.
-
-How File-Based Context Actually Retrieves
-
-File-Based mode uses a two-pass flow.
-
-Pass 1: LLM Router
-
-The system loads the available files from the summaries folder, generates small previews, and asks the model which files are relevant to the user’s question.
-
-This is basically an AI librarian step. The model does not answer the user yet. It only decides which files should be opened.
-
-Pass 2: Final Answer
-
-Once the router returns a file list, the system loads the full text of those selected summary files and injects them into the final prompt as the knowledge base for answer generation.
-
-This design is still brute-force compared to vector RAG, but it is better than blindly loading every file every time. The router helps reduce wasted tokens by filtering out irrelevant summaries before the final generation step.
-
-This File-Based Context mode currently don't have access to all documents that the other modes have access to.
+This is more thorough than standard RAG because the AI can see the entire file structure, but it consumes more tokens. It serves as an excellent baseline to compare against chunk-based retrieval.
 
 ## 5. Trace Engine and Trustworthiness
 

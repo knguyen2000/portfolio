@@ -70,9 +70,11 @@ def render_sidebar():
             st.session_state.messages = []
             st.session_state.view_doc = None
             st.session_state.highlight_phrase = None
+            st.session_state.pending_checkpoint = None
             st.rerun()
-            
+
         st.markdown("---")
+
         if st.session_state.get("user_role") == "Admin":
             st.success("👑 Logged in as Admin")
             if st.button("Logout", use_container_width=True):
