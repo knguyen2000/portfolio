@@ -135,6 +135,7 @@ CRITICAL RULES:
 2. Simple greetings, clear skill questions, or specific project requests -> NO checkpoint.
 3. Only checkpoint if the intent is genuinely ambiguous (could mean 2+ very different things).
 4. If the user already provided enough context, do NOT ask for more.
+5. If the user asks for a feature or action that is NOT currently supported (e.g., leaving a comment, dark mode), you SHOULD checkpoint (direction_choice) and offer an option like: "Submit this as a feature request to Khuong's backlog."
 
 Respond FIRST with a `<think>` block containing your internal reasoning, followed by ONLY a JSON object:
 <think>
