@@ -91,7 +91,7 @@ def _run_agent(client, agent_mode, prompt_text, docs, api_key, steps_log, status
     return response_text, token_stats
 
 
-def _run_post_generation(client, prompt_text, response_text, docs, steps_log, token_stats, status=None):
+def _run_post_generation(client, prompt_text, response_text, docs, steps_log, token_stats, status=None, force_concern_category=None):
     """Run trace engine + workflow intelligence, then append the response."""
     # Global deduplication guard
     response_text = _deduplicate_response(response_text)
@@ -108,18 +108,36 @@ def _run_post_generation(client, prompt_text, response_text, docs, steps_log, to
 
     # --- Workflow Intelligence: Detect Concern ---
     try:
-        if status: status.update(label="🖨️ Finalizing answer...", expanded=False)
-        log_event("Workflow Intelligence: Analyzing message...")
-        concern_data, concern_tokens = detect_concern(client, prompt_text)
-        st.session_state.turn_tokens += concern_tokens
-        
-        log_event(f"Workflow Intelligence result: is_concern={concern_data.get('is_concern')}, category={concern_data.get('category')}")
-        if concern_data and concern_data.get("is_concern"):
-            concern_data["original_quote"] = prompt_text
-            st.session_state.pending_concern = concern_data
-            log_event(f"Pending concern set: {concern_data.get('category')}")
-        else:
+        if force_concern_category:
+            log_event(f"Workflow Intelligence: Auto-submitting via Checkpoint Engine ({force_concern_category})")
+            from utils.workflow_db import insert_concern
+            concern_data = {
+                "is_concern": True,
+                "category": force_concern_category,
+                "original_quote": prompt_text,
+                "affected_role": st.session_state.get("user_role", "Visitor")
+            }
+            # Auto-submit to DB
+            insert_concern(concern_data, prompt_text)
             st.session_state.pending_concern = None
+            
+            # Append success message directly to the agent's response
+            msg_append = f"\n\n*✅ Thank you for the feedback! I've securely recorded this as a **{force_concern_category}** for Khuong to review.*"
+            response_text += msg_append
+            if traced_html:
+                traced_html += msg_append.replace("\n", "<br>")
+        else:
+            if status: status.update(label="🖨️ Finalizing answer...", expanded=False)
+            log_event("Workflow Intelligence: Analyzing message...")
+            concern_data, concern_tokens = detect_concern(client, prompt_text)
+            st.session_state.turn_tokens += concern_tokens
+            
+            log_event(f"Workflow Intelligence result: is_concern={concern_data.get('is_concern')}, category={concern_data.get('category')}")
+            if concern_data and concern_data.get("is_concern"):
+                concern_data["original_quote"] = prompt_text
+                st.session_state.pending_concern = concern_data
+            else:
+                st.session_state.pending_concern = None
     except Exception as wi_e:
         log_event(f"Workflow Intelligence error (non-fatal): {wi_e}")
         st.session_state.pending_concern = None
@@ -203,6 +221,22 @@ def resume_from_checkpoint(client, agent_mode, docs, api_key):
     try:
         steps_log = [f"Resumed from checkpoint ({checkpoint['checkpoint_type']})"]
         
+        force_concern = None
+        if "feature request" in user_edit.lower() or "backlog" in user_edit.lower():
+            force_concern = "feature request"
+            
+        if force_concern:
+            # FAST PATH: Checkpoint Engine already confirmed it's missing. Bypass Main Agent!
+            log_event("Checkpoint Engine confirmed missing feature. Bypassing Main Agent & Vector Search.")
+            response_text = "Currently, this feature is not available."
+            token_stats = {"total": 0}
+            
+            _run_post_generation(
+                client, checkpoint["original_message"], response_text,
+                docs, steps_log, token_stats, status=None, force_concern_category=force_concern
+            )
+            return
+
         # Unified status bar across all generation phases
         label = "🧠 Thinking..." if agent_mode == MODE_RLM else "🛠️ Generating Answer..."
         with st.status(label, expanded=True) as status:
@@ -210,9 +244,10 @@ def resume_from_checkpoint(client, agent_mode, docs, api_key):
                 client, agent_mode, enriched_prompt, docs, api_key, steps_log, status=status
             )
             st.session_state.turn_tokens += token_stats.get("total", 0)
+                
             _run_post_generation(
                 client, checkpoint["original_message"], response_text,
-                docs, steps_log, token_stats, status=status
+                docs, steps_log, token_stats, status=status, force_concern_category=None
             )
     except Exception as e:
         _handle_error(e)

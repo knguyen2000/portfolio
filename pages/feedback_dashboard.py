@@ -75,8 +75,15 @@ with tab1:
                         st.session_state.selected_concerns[item['id']] = checked
                     with col_content:
                         st.markdown(f"**Quote:** _{item['original_quote']}_")
-                        st.markdown(f"**Workflow Stage:** {item['workflow_stage']}  |  **Root Cause:** {item['likely_root_cause']}")
-                        st.markdown(f"**Tool Match:** {item['existing_tool_match']}")
+                        
+                        ws = item.get('workflow_stage')
+                        rc = item.get('likely_root_cause')
+                        tm = item.get('existing_tool_match')
+                        
+                        if ws or rc:
+                            st.markdown(f"**Workflow Stage:** {ws or 'N/A'}  |  **Root Cause:** {rc or 'N/A'}")
+                        if tm:
+                            st.markdown(f"**Tool Match:** {tm}")
                         
                         act_col1, act_col2 = st.columns([1, 1])
                         with act_col1:
