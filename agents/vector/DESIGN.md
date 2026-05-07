@@ -31,6 +31,7 @@ The Agent acts as the orchestrator for the retrieval lifecycle.
 1. **Freshness Check**: Before every query, the Agent triggers `is_stale()` to ensure the on-disk files haven't drifted from the database.
 2. **Context Synthesis**: It maps raw distance scores to human-readable percentages and "weights" the context chunks with these scores before passing them to the LLM.
 3. **Safety Monitoring**: It monitors the overall match quality and injects UI-level warnings for low-confidence results.
+4. **Verification & Traceability**: If the "Verify Sources" feature is enabled in the UI, the agent's final response is passed through the **Trace Engine**. This identifies verbatim matches from the retrieved context and wraps them in clickable anchors, allowing the user to jump directly to the source document for any claim.
 
 ---
 

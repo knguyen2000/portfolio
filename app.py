@@ -86,19 +86,25 @@ try:
             index=DEFAULT_MODE_INDEX,
         )
 
-    # --- Feature Bar (Reasoning & Verification) ---
-    _, col_center, _ = st.columns([1, 2, 1])
-    with col_center:
+    # Always use columns to keep the DOM context stable across reruns.
+    # When the doc panel is closed, the chat column simply takes the full width.
+    if st.session_state.view_doc:
+        col_chat, col_docs = st.columns([3, 2])
+    else:
+        (col_chat,) = st.columns([1])
+        col_docs = None
+
+    with col_chat:
+        # --- Feature Bar (Reasoning & Verification) ---
         show_verify = agent_mode in (MODE_FILE_BASED, MODE_VECTOR_RAG)
-        feat_cols = st.columns(2) if show_verify else [st.container()] # Container for single centered button
+        feat_cols = st.columns(2) if show_verify else [st.container()]
         
         # 1. Reasoning Mode (Global)
         with feat_cols[0]:
             ckpt_on = st.session_state.get("checkpoint_enabled", True)
             ckpt_label = "🧠 Thinking" if ckpt_on else "⚡ Instant"
-            # We use primary for Thinking to highlight it as the "enhanced" mode
             ckpt_type = "primary" if ckpt_on else "secondary"
-            if st.button(ckpt_label, type=ckpt_type, use_container_width=True, key="ckpt_toggle_btn", help="Thinking: AI pauses to clarify. Instant: AI answers immediately."):
+            if st.button(ckpt_label, type=ckpt_type, use_container_width=True, key="ckpt_toggle_btn"):
                 st.session_state.checkpoint_enabled = not ckpt_on
                 st.rerun()
                 
@@ -108,34 +114,43 @@ try:
                 verify_on = st.session_state.get("verify_enabled", False)
                 verify_label = "✅ Verify: ON" if verify_on else "🔍 Verify Sources"
                 verify_type = "primary" if verify_on else "secondary"
-                if st.button(verify_label, type=verify_type, use_container_width=True, key="verify_btn", help="Trace answers back to exact source documents"):
+                if st.button(verify_label, type=verify_type, use_container_width=True, key="verify_btn"):
                     st.session_state.verify_enabled = not verify_on
                     st.rerun()
 
-        # Help Text & Warnings
+        # Mode Description & Warnings
+        if agent_mode == MODE_FILE_BASED:
+            st.markdown(f"<p style='{WARNING_STYLE}'>⚠️ Retrieval Strategy: <b>Full Document Context</b>. Highest accuracy, but high token usage.</p>", unsafe_allow_html=True)
+        elif agent_mode == MODE_VECTOR_RAG:
+            st.markdown(f"<p style='{WARNING_STYLE}'>⚡ Retrieval Strategy: <b>Semantic Search (RAG)</b>. Fast and low token usage, but may miss context (enable 'Verify' to check).</p>", unsafe_allow_html=True)
+        elif agent_mode == MODE_RLM:
+            st.markdown(f"<p style='{WARNING_STYLE}'>🧠 Multi-Step Reasoning: Likely to consume the most tokens and take the longest to complete.</p>", unsafe_allow_html=True)
+
         if st.session_state.get("verify_enabled") and show_verify:
             st.markdown("<p style='text-align: center; color: gray; font-size: 0.85em; margin-top: -10px;'><i>Click highlighted text in answers to see sources!</i></p>", unsafe_allow_html=True)
 
-        # Mode Description & Warnings
-        if agent_mode == MODE_FILE_BASED:
-            st.markdown(f"<p style='{WARNING_STYLE}'>⚠️ File-Based Mode: Stuff all raw data to context window. Can be efficent for small data but problematic when scale </p>", unsafe_allow_html=True)
-        elif agent_mode == MODE_VECTOR_RAG:
-            st.markdown(f"<p style='{WARNING_STYLE}'>⚡ Standard RAG: Lowest token usage. Fast and cheap, but may miss context if retrieval fails (enable 'Verify' to check).</p>", unsafe_allow_html=True)
-        elif agent_mode == MODE_RLM:
-            st.markdown(f"<p style='{WARNING_STYLE}'>🧠 RLM Mode: Likely consume most tokens and take longest to conclude final answer </p>", unsafe_allow_html=True)
-
-    # Always use columns to keep the DOM context stable across reruns.
-    # When the doc panel is closed, the chat column simply takes the full width.
-    if st.session_state.view_doc:
-        col_chat, col_docs = st.columns([3, 2])
-    else:
-        (col_chat,) = st.columns([1])  # Full width; single col keeps DOM context stable
-        col_docs = None
+        st.markdown("---")
 
     # ------------------------------------------------------------------
     # Chat History Rendering
     # ------------------------------------------------------------------
     with col_chat:
+        # --- Pre-Render Checkpoint Cleanup ---
+        pending_ckpt = st.session_state.get("pending_checkpoint")
+        if pending_ckpt and pending_ckpt.get("status") == "user_responded":
+            # Remove the checkpoint message so it vanishes instantly
+            st.session_state.messages = [m for m in st.session_state.messages if not m.get("checkpoint")]
+            
+            # Update the user's original message to reflect their clarification
+            user_decision = pending_ckpt.get("user_decision", "approved")
+            user_edit = pending_ckpt.get("user_edit", "")
+            if user_edit and user_decision == "edited":
+                for m in reversed(st.session_state.messages):
+                    if m["role"] == "user":
+                        if f"*(Clarified: {user_edit})*" not in m["content"]:
+                            m["content"] += f"\n\n*(Clarified: {user_edit})*"
+                        break
+
         render_chat_history()
 
         # ------------------------------------------------------------------

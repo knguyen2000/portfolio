@@ -167,11 +167,11 @@ sequenceDiagram
     *   Injects a CSS-styled `<span>` to highlight the specific phrase within the document.
 
 ## Phase 6.5: Workflow Intelligence
-**Files:** [workflow_intelligence.py](file:///c:/Users/khuon/portfolio/components/workflow_intelligence.py) · [workflow_db.py](file:///c:/Users/khuon/portfolio/utils/workflow_db.py)
+**Files:** [workflow_intelligence.py](file:///c:/Users/khuon/portfolio/engines/workflow_intelligence.py) · [workflow_db.py](file:///c:/Users/khuon/portfolio/utils/workflow_db.py)
 
 After the agent produces its answer but **before** `append_response` triggers a rerun, the dispatch layer runs a lightweight LLM classifier on the *user's message* (not the answer).
 
-1.  **`detect_concern(client, message_text)`** ([workflow_intelligence.py](file:///c:/Users/khuon/portfolio/components/workflow_intelligence.py)):
+1.  **`detect_concern(client, message_text)`** ([workflow_intelligence.py](file:///c:/Users/khuon/portfolio/engines/workflow_intelligence.py)):
     *   Loads `data/portfolio_capabilities.md` as ground truth so the classifier can distinguish *existing* features from *missing* ones.
     *   Sends a structured prompt to Gemini (using `_generate_content_with_fallback` with retry + model fallback).
     *   Returns a concern dict with keys: `is_concern`, `category`, `workflow_stage`, `affected_role`, `root_cause`, `tool_match`, `analysis`.
@@ -222,10 +222,10 @@ Status lifecycle: `unresolved` → `solved` | `discarded` | `accepted_to_backlog
 | **State** | `log_event` | `state.py` | Timestamped event logging. |
 | **UI** | `st_click_detector` | `components/chat_renderer.py`| Handles verification clicks. |
 | **UI** | `render_document_viewer`| `components/chat_renderer.py`| Shows source file + highlight snippet. |
-| **WI** | `detect_concern` | `components/workflow_intelligence.py`| Classifies user message into concern type. |
-| **WI** | `generate_backlog_candidate`| `components/workflow_intelligence.py`| Drafts structured backlog ticket from concerns. |
-| **WI** | `_generate_content_with_fallback`| `components/workflow_intelligence.py`| Gemini call with 503 retry + model fallback. |
-| **WI** | `_load_capabilities` | `components/workflow_intelligence.py`| Loads portfolio UI ground truth for classifier. |
+| **WI** | `detect_concern` | `engines/workflow_intelligence.py`| Classifies user message into concern type. |
+| **WI** | `generate_backlog_candidate`| `engines/workflow_intelligence.py`| Drafts structured backlog ticket from concerns. |
+| **WI** | `_generate_content_with_fallback`| `engines/workflow_intelligence.py`| Gemini call with 503 retry + model fallback. |
+| **WI** | `_load_capabilities` | `engines/workflow_intelligence.py`| Loads portfolio UI ground truth for classifier. |
 | **WI** | `insert_concern` | `utils/workflow_db.py` | Persists a new concern to SQLite. |
 | **WI** | `mark_concern_resolved`| `utils/workflow_db.py` | Sets status to `solved` and logs action. |
 | **WI** | `discard_concern` | `utils/workflow_db.py` | Sets status to `discarded` with reason. |
@@ -234,8 +234,8 @@ Status lifecycle: `unresolved` → `solved` | `discarded` | `accepted_to_backlog
 | **WI** | `log_activity` | `utils/workflow_db.py` | Writes action to immutable audit log. |
 | **WI** | `get_activity_log` | `utils/workflow_db.py` | Retrieves audit log joined with concern data. |
 | **WI** | `init_db` | `utils/workflow_db.py` | Creates all 3 WI tables on first boot. |
-| **Ckpt**| `should_checkpoint`| `components/checkpoint_engine.py`| Classifies if message needs a checkpoint pause. |
-| **Ckpt**| `build_resume_prompt`| `components/checkpoint_engine.py`| Enriches prompt with user checkpoint decision. |
+| **Ckpt**| `should_checkpoint`| `engines/checkpoint_engine.py`| Classifies if message needs a checkpoint pause. |
+| **Ckpt**| `build_resume_prompt`| `engines/checkpoint_engine.py`| Enriches prompt with user checkpoint decision. |
 | **Ckpt**| `check_and_set_checkpoint`| `components/agent_dispatch.py` | Orchestrates pre-generation checkpoint gating. |
 | **Ckpt**| `resume_from_checkpoint`| `components/agent_dispatch.py` | Orchestrates resumption from a user decision. |
 | **Ckpt**| `_render_checkpoint_card`| `components/chat_renderer.py`  | Renders interactive UI for pending checkpoints. |

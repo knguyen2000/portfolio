@@ -15,7 +15,7 @@ from utils.workflow_db import (
     get_backlog_candidates, insert_backlog_candidate,
     get_activity_log
 )
-from components.workflow_intelligence import generate_backlog_candidate
+from engines.workflow_intelligence import generate_backlog_candidate
 from state import init_session_state
 
 st.set_page_config(layout="wide", page_title="Review Dashboard", page_icon="⚙️")

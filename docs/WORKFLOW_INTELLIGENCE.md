@@ -125,7 +125,7 @@ Accessible only after Admin login via the sidebar expander.
 ## Extending the System
 
 ### Adding a new concern category
-Edit the `category` field in `detect_concern()`'s prompt inside `workflow_intelligence.py`. No schema changes needed — the category is stored as free text.
+Edit the `category` field in `detect_concern()`'s prompt inside `engines/workflow_intelligence.py`. No schema changes needed — the category is stored as free text.
 
 ### Adding a new portfolio feature visitors can ask about
 Update `data/portfolio_capabilities.md`. The classifier loads this file at runtime, so no code changes are needed.
@@ -142,7 +142,7 @@ Add it to the "What Is NOT Currently Supported" section in `data/portfolio_capab
 
 | File | Role |
 |---|---|
-| `components/workflow_intelligence.py` | LLM classifier + backlog generator |
+| `engines/workflow_intelligence.py` | LLM classifier + backlog generator |
 | `utils/workflow_db.py` | SQLite persistence layer (3 tables) |
 | `pages/feedback_dashboard.py` | Admin dashboard UI (4 tabs) |
 | `components/agent_dispatch.py` | Integration point — runs classifier post-answer |

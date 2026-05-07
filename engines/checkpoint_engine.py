@@ -47,8 +47,8 @@ def _extract_json(text: str) -> dict:
 
 def _generate_with_fallback(client, prompt: str, status_placeholder=None) -> tuple[str, str, int]:
     """Call Gemini with retry + model fallback. Streams thinking blocks to UI."""
-    # Corrected model names and prioritized speed
-    models = ["gemini-3.1-flash-lite-preview", "gemini-2.0-flash", "gemini-1.5-flash"]
+    # Gemini as Gemma can leak text to json
+    models = ["gemini-3.1-flash-lite-preview", "gemini-2.0-flash"]
     last_error = None
     
     for model in models:

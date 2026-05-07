@@ -93,6 +93,7 @@ class FileBasedAgent:
                     role = "model" if m.get("role") == "assistant" else "user"
                     formatted_history.append({"role": role, "parts": [{"text": m["content"]}]})
 
+        self.log("Generating answer...")
         chat = self.client.chats.create(
             model=self.model_id,
             config=genai.types.GenerateContentConfig(
@@ -101,8 +102,6 @@ class FileBasedAgent:
             ),
             history=formatted_history,
         )
-
-        self.log("Generating answer...")
         response = chat.send_message(user_query)
         self.log("Answer received.")
 
@@ -111,4 +110,13 @@ class FileBasedAgent:
             self.token_usage['total'] = response.usage_metadata.total_token_count or 0
             self.log(f"🪙 Tokens: {self.token_usage['total']}")
 
-        return response.text, self.token_usage
+        final_text = response.text or ""
+
+        # Defensive De-duplication:
+        # If the model repeats a short response twice, strip it.
+        # This fixes a known artifact in Gemini 2.0 Thinking models.
+        lines = [line.strip() for line in final_text.split('\n') if line.strip()]
+        if len(lines) == 2 and lines[0] == lines[1] and len(lines[0]) < 100:
+            final_text = lines[0]
+
+        return final_text, self.token_usage

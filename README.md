@@ -31,8 +31,8 @@ It is a **Streamlit web application**. Its "database" is a folder of `.md` and `
 │  ┌──────────────────────────────┐   ┌───────────────────────┴──┐ │
 │  │  agents/                     │   │  engines/                │ │
 │  │    rlm/        RLMAgent      │   │    trace_engine.py       │ │
-│  │    vector/     VectorRAGAgent│   │                          │ │
-│  │    file_based/ FileBasedAgent│   │                          │ │
+│  │    vector/     VectorRAGAgent│   │    checkpoint_engine.py  │ │
+│  │    file_based/ FileBasedAgent│   │    workflow_intel.py     │ │
 │  └──────▲───────────────────────┘   └──────────────▲───────────┘ │
 │         │                                          │             │
 │         │           ┌──────────────────────────┐   │             │
@@ -77,8 +77,9 @@ Each folder ships with a `DESIGN.md` (why it is shaped this way) and a `BEHAVIOR
 **Responsibility:** Reusable, stateless services.
 
 - **`engines/trace_engine.py`** — `load_corpus(data_dir)` reads `.txt`/`.md`/`.pdf`/`.docx` into a `{path: content}` dict. `find_maximal_matches(response, corpus)` is a greedy maximal-exact-match scanner that wraps every verbatim phrase (≥15 chars) in the model's answer with a clickable HTML anchor. This is what makes the "click a sentence to see its source" UI work.
+- **`engines/checkpoint_engine.py`** — provides the logic for **Thinking Mode**. It classifies user intent and determines if a pause for clarification is needed before proceeding to generation.
+- **`engines/workflow_intelligence.py`** — detects visitor "concerns" (pain points, feature requests) and manages the consent-based feedback collection flow.
 - **`utils/sidebar.py`** — profile card + nav links.
-- **`utils/video_modal.py`** — fullscreen video overlay CSS.
 
 These modules do not know *why* they are being called. They take inputs and return outputs. This is the most reusable tier: if I ever rewrite the frontend in Next.js, these modules could move to a backend API unchanged.
 

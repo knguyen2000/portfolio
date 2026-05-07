@@ -53,9 +53,16 @@ This is a **structural design choice** meant to synergize with the portfolio's U
 ### Groundedness over Paraphrasing
 Temperature is set to `0` to ensure that the agent stays grounded in the summary text. This prevents the "creative drift" that often happens in informational portfolios.
 
+## 3. Verification & Traceability
+
+Like the Vector RAG agent, the File-Based agent supports the **Verify Sources** feature. When enabled, the `agent_dispatch` layer passes the agent's response and the selected file corpus to the **Trace Engine**. 
+
+Because this agent works with raw, un-chunked document text, the Trace Engine is extremely effective at finding verbatim quotes. This provides a "Ground Truth" guarantee: the user can click any highlighted sentence to see exactly where it resides in the original portfolio documents.
+
 ---
 
-## 4. Summary of Tradeoffs
+## 4. Summary Table
+of Tradeoffs
 
 | Decision | Choice Made | Tradeoff |
 |---|---|---|
