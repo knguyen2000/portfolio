@@ -27,6 +27,8 @@ def init_session_state():
         st.session_state.pending_checkpoint = None
     if "checkpoint_enabled" not in st.session_state:
         st.session_state.checkpoint_enabled = True
+    if "rerun_id" not in st.session_state:
+        st.session_state.rerun_id = 0
 
 def log_event(msg: str):
     """Appends a timestamped message to the debug log and prints it."""
@@ -36,13 +38,14 @@ def log_event(msg: str):
         st.session_state.debug_log.append(log_msg)
     print(f"DEBUG_LOG: {log_msg}")
 
-def append_response(content: str, html_content=None, debug_steps=None, token_usage=None):
-    """Appends an assistant message to session state and reruns."""
+def append_response(content: str, html_content: str = None, debug_steps: list = None, token_usage: dict = None, sources: list = None):
+    """Adds an assistant response to the chat history, optionally with HTML and debug trace."""
     st.session_state.messages.append({
         "role": "assistant",
         "content": content,
         "html_content": html_content,
-        "debug_steps": debug_steps or [],
-        "token_usage": token_usage or {},
+        "debug_steps": debug_steps,
+        "token_usage": token_usage,
+        "sources": sources
     })
     st.rerun()

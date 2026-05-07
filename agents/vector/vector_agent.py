@@ -108,13 +108,20 @@ class VectorRAGAgent:
             system_prompt += "\n\nCRITICAL: Answer naturally and conversationally, but you MUST embed exact, verbatim phrases from the context into your sentences. Do not just dump raw text, but ensure your core facts are exact substring matches so the Trace Engine can highlight them."
 
         self.log("Generating answer...")
+        
         chat = self.client.chats.create(
             model=self.model_id,
-            config=genai.types.GenerateContentConfig(temperature=0),
+            config=genai.types.GenerateContentConfig(
+                temperature=0,
+                system_instruction=system_prompt
+            ),
         )
-        response = chat.send_message(system_prompt + "\n\nUser Question: " + user_query)
+        response = chat.send_message("User Question: " + user_query)
+        self.log("Answer received.")
 
         if hasattr(response, "usage_metadata") and response.usage_metadata:
             self.token_usage['total'] = response.usage_metadata.total_token_count or 0
 
-        return caution_prefix + response.text, self.token_usage
+        final_text = response.text or ""
+
+        return caution_prefix + final_text, self.token_usage

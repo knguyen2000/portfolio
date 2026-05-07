@@ -15,8 +15,8 @@ from engines.trace_engine import find_maximal_matches
 from agents.rlm.rlm_agent import RLMAgent
 from agents.vector.vector_agent import VectorRAGAgent
 from agents.file_based.file_based_agent import FileBasedAgent
-from components.workflow_intelligence import detect_concern
-from components.checkpoint_engine import should_checkpoint, build_resume_prompt
+from engines.workflow_intelligence import detect_concern
+from engines.checkpoint_engine import should_checkpoint, build_resume_prompt
 
 
 def _make_logger(status, steps_log):
@@ -26,6 +26,39 @@ def _make_logger(status, steps_log):
         log_event(msg)
         steps_log.append(msg)
     return _log
+
+def _deduplicate_response(text):
+    """
+    Defensively deduplicates mirrored text (A\nA) often seen in newer Gemini models
+    when pushed for strict verbatim extraction. Robust against whitespace quirks.
+    """
+    if not text: return ""
+    text = text.strip()
+    
+    import re
+    # Remove all whitespace to check for perfect duplication
+    clean_text = re.sub(r'\s+', '', text)
+    if not clean_text: return text
+    
+    if len(clean_text) % 2 == 0:
+        half_len = len(clean_text) // 2
+        if clean_text[:half_len] == clean_text[half_len:]:
+            # We found a perfect echo! Return the first half of the original text.
+            char_count = 0
+            for i, char in enumerate(text):
+                if not char.isspace():
+                    char_count += 1
+                if char_count == half_len:
+                    return text[:i+1].strip()
+    
+    # Fallback to paragraph logic for weird formatting cases
+    paragraphs = [p.strip() for p in text.split('\n') if p.strip()]
+    if len(paragraphs) > 1 and len(paragraphs) % 2 == 0:
+        half = len(paragraphs) // 2
+        if paragraphs[:half] == paragraphs[half:]:
+            return "\n\n".join(paragraphs[:half])
+            
+    return text
 
 
 def _run_agent(client, agent_mode, prompt_text, docs, api_key, steps_log, status=None):
@@ -60,18 +93,22 @@ def _run_agent(client, agent_mode, prompt_text, docs, api_key, steps_log, status
 
 def _run_post_generation(client, prompt_text, response_text, docs, steps_log, token_stats, status=None):
     """Run trace engine + workflow intelligence, then append the response."""
+    # Global deduplication guard
+    response_text = _deduplicate_response(response_text)
+    
     # --- Centralized Trace Engine Verification ---
     traced_html = None
+    sources = []
     if st.session_state.verify_enabled:
         if status: status.update(label="🔍 Verifying sources...", expanded=False)
         log_event("Verifying sources (Trace Engine)...")
-        traced_html = find_maximal_matches(response_text, docs)
+        traced_html, sources = find_maximal_matches(response_text, docs)
 
     st.session_state.last_html_debug = traced_html
 
     # --- Workflow Intelligence: Detect Concern ---
     try:
-        if status: status.update(label="🤖 Finalizing answer...", expanded=False)
+        if status: status.update(label="🖨️ Finalizing answer...", expanded=False)
         log_event("Workflow Intelligence: Analyzing message...")
         concern_data, concern_tokens = detect_concern(client, prompt_text)
         st.session_state.turn_tokens += concern_tokens
@@ -93,7 +130,7 @@ def _run_post_generation(client, prompt_text, response_text, docs, steps_log, to
     
     # Use the globally accumulated tokens for the final display
     total_turn_tokens = st.session_state.get("turn_tokens", token_stats.get("total", 0))
-    append_response(response_text, html_content=traced_html, debug_steps=steps_log, token_usage={"total": total_turn_tokens})
+    append_response(response_text, html_content=traced_html, debug_steps=steps_log, token_usage={"total": total_turn_tokens}, sources=sources)
 
 
 def check_and_set_checkpoint(client, prompt_text):
@@ -107,8 +144,9 @@ def check_and_set_checkpoint(client, prompt_text):
 
     log_event("Checkpoint Engine: Classifying message...")
     
+    status_label = "🧠 Thinking..." if st.session_state.get("checkpoint_enabled", True) else "⚡ Analyzing request..."
     status_container = st.empty()
-    with status_container.status("🧠 Analyzing request...", expanded=True) as status:
+    with status_container.status(status_label, expanded=True) as status:
         thought_placeholder = st.empty()
         thought_placeholder.markdown("Checking if the question needs clarification...")
         checkpoint = should_checkpoint(
@@ -160,25 +198,13 @@ def resume_from_checkpoint(client, agent_mode, docs, api_key):
     # Clear checkpoint state
     st.session_state.pending_checkpoint = None
 
-    # Remove the checkpoint message from history to keep UI clean
-    st.session_state.messages = [
-        m for m in st.session_state.messages 
-        if not m.get("checkpoint")
-    ]
-
-    # Update user's original message to reflect their clarification
-    if user_edit and user_decision == "edited":
-        for m in reversed(st.session_state.messages):
-            if m["role"] == "user":
-                m["content"] += f"\n\n*(Clarified: {user_edit})*"
-                break
-
     # Run normal agent flow with the enriched prompt
+
     try:
         steps_log = [f"Resumed from checkpoint ({checkpoint['checkpoint_type']})"]
         
         # Unified status bar across all generation phases
-        label = "🧠 RLM Thinking..." if agent_mode == MODE_RLM else "🛠️ Generating Answer..."
+        label = "🧠 Thinking..." if agent_mode == MODE_RLM else "🛠️ Generating Answer..."
         with st.status(label, expanded=True) as status:
             response_text, token_stats = _run_agent(
                 client, agent_mode, enriched_prompt, docs, api_key, steps_log, status=status
@@ -198,7 +224,7 @@ def generate_answer(client, agent_mode, prompt_text, docs, api_key):
         steps_log = []
         
         # Unified status bar across all generation phases
-        label = "🧠 RLM Thinking..." if agent_mode == MODE_RLM else "🛠️ Generating Answer..."
+        label = "🧠 Thinking..." if agent_mode == MODE_RLM else "🛠️ Generating Answer..."
         with st.status(label, expanded=True) as status:
             response_text, token_stats = _run_agent(
                 client, agent_mode, prompt_text, docs, api_key, steps_log, status=status

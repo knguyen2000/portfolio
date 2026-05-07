@@ -46,12 +46,13 @@ def load_corpus(data_dir: str = "data") -> Dict[str, str]:
                 print(f"Error loading {f}: {e}")
     return docs
 
-def find_maximal_matches(response_text: str, corpus_docs: Dict[str, str], min_len: int = 15) -> str:
+def find_maximal_matches(response_text: str, corpus_docs: Dict[str, str], min_len: int = 15):
     """
     Greedy Maximal Exact Match algorithm
-    Returns the response text annotated with HTML links for highlights
+    Returns a tuple: (annotated_html_string, list_of_matched_document_names)
     """
     output_html = ""
+    matched_sources = set()
     n = len(response_text)
     i = 0
     
@@ -94,15 +95,16 @@ def find_maximal_matches(response_text: str, corpus_docs: Dict[str, str], min_le
                     break
         
         if len(longest_match_curr) >= min_len:
-            # Create clickable HTML anchor
             # Escape HTML in the text to prevent rendering issues
             safe_text = longest_match_curr.replace("<", "&lt;").replace(">", "&gt;")
             
-            # ID format: "doc_name:::encoded_text"
+            # Use an anchor tag for st_click_detector to intercept clicks
             import urllib.parse
             encoded_text = urllib.parse.quote(longest_match_curr)
-            html_tag = f"<a class='verbatim-match' href='#' id='{source_curr}:::{encoded_text}'>{safe_text}</a>"
+            html_tag = f"<a class='verbatim-match' href='#' id='{source_curr}:::{encoded_text}' style='background-color: #e0f7fa; border-radius: 3px; padding: 0 4px; border: 1px solid #b2ebf2; text-decoration: none; color: inherit; cursor: pointer;' title='Source: {source_curr}'>{safe_text}</a>"
+
             output_html += html_tag
+            matched_sources.add(source_curr)
             i += len(longest_match_curr)
         else:
             # Append current char and move 1
@@ -110,4 +112,4 @@ def find_maximal_matches(response_text: str, corpus_docs: Dict[str, str], min_le
             output_html += safe_char
             i += 1
             
-    return output_html.replace("\n", "<br>")
+    return output_html.replace("\n", "<br>"), list(matched_sources)
