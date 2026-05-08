@@ -38,7 +38,7 @@ def log_event(msg: str):
         st.session_state.debug_log.append(log_msg)
     print(f"DEBUG_LOG: {log_msg}")
 
-def append_response(content: str, html_content: str = None, debug_steps: list = None, token_usage: dict = None, sources: list = None):
+def append_response(content: str, html_content: str = None, debug_steps: list = None, token_usage: dict = None, sources: list = None, nla_analysis: dict = None):
     """Adds an assistant response to the chat history, optionally with HTML and debug trace."""
     st.session_state.messages.append({
         "role": "assistant",
@@ -46,6 +46,7 @@ def append_response(content: str, html_content: str = None, debug_steps: list = 
         "html_content": html_content,
         "debug_steps": debug_steps,
         "token_usage": token_usage,
-        "sources": sources
+        "sources": sources,
+        "nla_analysis": nla_analysis,
     })
     st.rerun()

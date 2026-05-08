@@ -9,7 +9,7 @@ This module is the central traffic controller. It:
 5. Handles all Gemini API errors with user-friendly messages
 """
 import streamlit as st
-from config.app_config import MODEL_ID, MODE_RLM, MODE_VECTOR_RAG, MODE_FILE_BASED
+from config.app_config import MODEL_ID, MODE_RLM, MODE_VECTOR_RAG, MODE_FILE_BASED, MODE_NLA
 from state import log_event, append_response
 from engines.trace_engine import find_maximal_matches
 from agents.rlm.rlm_agent import RLMAgent
@@ -79,6 +79,13 @@ def _run_agent(client, agent_mode, prompt_text, docs, api_key, steps_log, status
             verify_enabled=st.session_state.verify_enabled
         )
 
+    elif agent_mode == MODE_NLA:
+        log_event("NLA Mode Selected")
+        from agents.nla.nla_agent import NLAAgent
+        agent = NLAAgent(client, MODEL_ID, log_callback=logger)
+        response_text, token_stats, nla_analysis = agent.completion(prompt_text)
+        st.session_state.pending_nla_analysis = nla_analysis
+
     else:  # MODE_FILE_BASED
         log_event("File-Based Context Mode Selected")
         agent = FileBasedAgent(client, MODEL_ID, docs=docs, log_callback=logger)
@@ -93,6 +100,9 @@ def _run_agent(client, agent_mode, prompt_text, docs, api_key, steps_log, status
 
 def _run_post_generation(client, prompt_text, response_text, docs, steps_log, token_stats, status=None, force_concern_category=None):
     """Run trace engine + workflow intelligence, then append the response."""
+    # Collect any NLA analysis produced by the NLA agent
+    nla_analysis = st.session_state.pop("pending_nla_analysis", None)
+
     # Global deduplication guard
     response_text = _deduplicate_response(response_text)
     
@@ -148,7 +158,7 @@ def _run_post_generation(client, prompt_text, response_text, docs, steps_log, to
     
     # Use the globally accumulated tokens for the final display
     total_turn_tokens = st.session_state.get("turn_tokens", token_stats.get("total", 0))
-    append_response(response_text, html_content=traced_html, debug_steps=steps_log, token_usage={"total": total_turn_tokens}, sources=sources)
+    append_response(response_text, html_content=traced_html, debug_steps=steps_log, token_usage={"total": total_turn_tokens}, sources=sources, nla_analysis=nla_analysis)
 
 
 def check_and_set_checkpoint(client, prompt_text):

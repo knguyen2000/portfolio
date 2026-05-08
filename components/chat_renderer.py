@@ -147,6 +147,26 @@ def render_chat_history():
                         for step in msg["debug_steps"]:
                             st.write(step)
 
+                # NLA analysis panel
+                if msg.get("nla_analysis"):
+                    nla = msg["nla_analysis"]
+                    stats = nla.get("stats", {})
+                    with st.expander(
+                        f"🔬 NLA — What the model was thinking  "
+                        f"*(layer {stats.get('layer', '?')} · entropy {stats.get('entropy', 0)})*",
+                        expanded=False,
+                    ):
+                        st.caption(f"Model: {nla.get('model', 'unknown')} — real PyTorch activation hook on layer {stats.get('layer', '?')}")
+                        st.markdown(nla.get("verbalization", ""))
+                        st.markdown("---")
+                        c1, c2, c3 = st.columns(3)
+                        c1.metric("Activation Entropy", stats.get("entropy", "—"))
+                        c2.metric("L2 Norm", stats.get("l2_norm", "—"))
+                        c3.metric(
+                            "Peak Token Position",
+                            f"{stats.get('peak_token_pos', '—')} / {stats.get('seq_len', '—')}",
+                        )
+
                 # Render HTML or plain text
                 html_to_render = msg.get("html_content")
                 
