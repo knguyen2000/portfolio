@@ -151,20 +151,46 @@ def render_chat_history():
                 if msg.get("nla_analysis"):
                     nla = msg["nla_analysis"]
                     stats = nla.get("stats", {})
-                    with st.expander(
-                        f"🔬 NLA — What the model was thinking  "
-                        f"*(layer {stats.get('layer', '?')} · entropy {stats.get('entropy', 0)})*",
-                        expanded=False,
-                    ):
-                        st.caption(f"Model: {nla.get('model', 'unknown')} — real PyTorch activation hook on layer {stats.get('layer', '?')}")
+                    fve = nla.get("fve")
+
+                    if fve is not None:
+                        fve_pct = f"{fve:.0%}"
+                        fve_color = "#2ecc71" if fve >= 0.5 else ("#f39c12" if fve >= 0.3 else "#e74c3c")
+                        expander_label = f"🔬 NLA — What the model was thinking · FVE {fve_pct}"
+                    else:
+                        expander_label = f"🔬 NLA — What the model was thinking · layer {stats.get('layer', '?')} · entropy {stats.get('entropy', 0)}"
+
+                    with st.expander(expander_label, expanded=False):
+                        caption_parts = [
+                            f"Model: {nla.get('model', 'unknown')}",
+                            f"Layer {stats.get('layer', '?')} activation hook",
+                        ]
+                        if nla.get("ar_trained"):
+                            caption_parts.append("AR trained ✓")
+                        st.caption(" · ".join(caption_parts))
+
+                        if fve is not None:
+                            fve_interp = (
+                                "Good reconstruction — description captures the activation well"
+                                if fve >= 0.5 else
+                                "Moderate — description partially captures the activation"
+                                if fve >= 0.3 else
+                                "Low — description may not reflect the actual internal state"
+                            )
+                            st.markdown(
+                                f"<span style='color:{fve_color};font-weight:bold'>FVE {fve:.4f}</span> — {fve_interp}",
+                                unsafe_allow_html=True,
+                            )
+
                         st.markdown(nla.get("verbalization", ""))
                         st.markdown("---")
-                        c1, c2, c3 = st.columns(3)
-                        c1.metric("Activation Entropy", stats.get("entropy", "—"))
-                        c2.metric("L2 Norm", stats.get("l2_norm", "—"))
-                        c3.metric(
-                            "Peak Token Position",
-                            f"{stats.get('peak_token_pos', '—')} / {stats.get('seq_len', '—')}",
+                        c1, c2, c3, c4 = st.columns(4)
+                        c1.metric("FVE", f"{fve:.4f}" if fve is not None else "—")
+                        c2.metric("Entropy", stats.get("entropy", "—"))
+                        c3.metric("L2 Norm", stats.get("l2_norm", "—"))
+                        c4.metric(
+                            "Seq Len",
+                            f"{stats.get('seq_len', '—')}",
                         )
 
                 # Render HTML or plain text

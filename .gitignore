@@ -18,3 +18,4 @@ verify_*.py
 test_results.txt
 models_list.txt
 list_models.py
+settings.*

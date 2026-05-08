@@ -38,15 +38,12 @@ def _generate_content_with_fallback(client, prompt: str) -> str:
     Call generate_content with retry + model fallback.
 
     Tries gemini-3.1-flash-lite-preview first (good for structured JSON output),
-    falls back to gemini-2.0-flash on 503 / UNAVAILABLE errors.
-    Note: the main chat uses Gemma via MODEL_ID; these Gemini models are used
-    here because they are more reliable at returning strict JSON.
+    Gemini models are because they are more reliable at returning strict JSON.
     """
     # Gemma can struggle with strict JSON so use Gemini though with lower rate limit
     models_to_try = [
         "gemini-3.1-flash-lite-preview", 
-        "gemini-3.0-flash",
-        "gemini-2.0-flash",
+        "gemini-3-flash",
         "gemini-1.5-flash",
         "gemini-1.5-flash-8b"
     ]

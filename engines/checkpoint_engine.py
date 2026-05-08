@@ -50,7 +50,7 @@ def _generate_with_fallback(client, prompt: str, status_placeholder=None) -> tup
     # Gemini as Gemma can leak text to json
     models = [
         "gemini-3.1-flash-lite-preview", 
-        "gemini-3.0-flash",
+        "gemini-3-flash",
         "gemini-1.5-flash",
         "gemini-1.5-flash-8b"
     ]
