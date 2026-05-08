@@ -48,7 +48,12 @@ def _extract_json(text: str) -> dict:
 def _generate_with_fallback(client, prompt: str, status_placeholder=None) -> tuple[str, str, int]:
     """Call Gemini with retry + model fallback. Streams thinking blocks to UI."""
     # Gemini as Gemma can leak text to json
-    models = ["gemini-3.1-flash-lite-preview", "gemini-2.0-flash"]
+    models = [
+        "gemini-3.1-flash-lite-preview", 
+        "gemini-3.0-flash",
+        "gemini-1.5-flash",
+        "gemini-1.5-flash-8b"
+    ]
     last_error = None
     
     for model in models:
@@ -192,7 +197,7 @@ def should_checkpoint(client, user_message: str, chat_history: list = None, stat
 
     capabilities = _load_capabilities()
     prompt = _CLASSIFIER_PROMPT.format(
-        capabilities=capabilities[:3000],  # Truncate to save tokens
+        capabilities=capabilities[:10000],  # Ensure we don't cut off the 'NOT Supported' section
         user_message=user_message,
     )
 

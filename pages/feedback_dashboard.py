@@ -67,7 +67,8 @@ with tab1:
                     col_check, col_content = st.columns([0.05, 0.95])
                     with col_check:
                         checked = st.checkbox(
-                            "",
+                            "Select",
+                            label_visibility="hidden",
                             key=f"chk_{item['id']}",
                             value=st.session_state.selected_concerns.get(item['id'], False),
                             help="Select to include in a backlog candidate"

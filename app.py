@@ -153,6 +153,19 @@ try:
 
         render_chat_history()
 
+        # Ensures the latest message is in view when a response appears
+        st.components.v1.html(
+            """
+            <script>
+            var body = window.parent.document.querySelector(".main");
+            if (body) {
+                body.scrollTop = body.scrollHeight;
+            }
+            </script>
+            """,
+            height=0,
+        )
+
         # ------------------------------------------------------------------
         # Generate Answer (checkpoint-aware)
         # ------------------------------------------------------------------

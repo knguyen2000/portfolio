@@ -43,20 +43,31 @@ def _generate_content_with_fallback(client, prompt: str) -> str:
     here because they are more reliable at returning strict JSON.
     """
     # Gemma can struggle with strict JSON so use Gemini though with lower rate limit
-    models_to_try = ["gemini-3.1-flash-lite-preview", "gemini-2.0-flash"]
+    models_to_try = [
+        "gemini-3.1-flash-lite-preview", 
+        "gemini-3.0-flash",
+        "gemini-2.0-flash",
+        "gemini-1.5-flash",
+        "gemini-1.5-flash-8b"
+    ]
     last_error = None
     for model in models_to_try:
-        for attempt in range(2):
-            try:
-                response = client.models.generate_content(model=model, contents=prompt)
-                tokens = response.usage_metadata.total_token_count if hasattr(response, "usage_metadata") and response.usage_metadata else 0
-                return response.text, tokens
-            except Exception as e:
-                last_error = e
-                if "503" in str(e) or "UNAVAILABLE" in str(e):
-                    time.sleep(1.5 * (attempt + 1))
-                    continue
-                raise
+        try:
+            response = client.models.generate_content(
+                model=model, 
+                contents=prompt,
+                config=genai.types.GenerateContentConfig(
+                    temperature=0.1,
+                    max_output_tokens=500, # Workflow analysis is short
+                )
+            )
+            tokens = response.usage_metadata.total_token_count if hasattr(response, "usage_metadata") and response.usage_metadata else 0
+            return response.text, tokens
+        except Exception as e:
+            last_error = e
+            # If 503 or 429, don't wait too long, just try the next model in our robust list
+            print(f"[workflow_intelligence] Model {model} failed: {e}")
+            continue
     raise last_error  # type: ignore[misc]
 
 

@@ -222,7 +222,7 @@ def render_chat_history():
                     # Update the last assistant message to acknowledge submission
                     for m in reversed(st.session_state.messages):
                         if m["role"] == "assistant":
-                            msg_append = f"\n\n✅ Thank you for the feedback! I've securely recorded this as a **{concern.get('category', 'feature request')}** for Khuong to review."
+                            msg_append = f"\n\n✅ Thank you for the feedback! I've securely recorded this as a {concern.get('category', 'feature request')} for Khuong to review."
                             m["content"] += msg_append
                             if m.get("html_content"):
                                 m["html_content"] += msg_append.replace("\n", "<br>")
