@@ -60,15 +60,16 @@ This layer contains **no reasoning logic**. It only calls dispatchers and render
 
 **Responsibility:** Decide *which* agent handles a request and *how* to render the result.
 
-This is the "traffic controller". It reads the selected mode, prepares the context, calls the right agent, and attaches metadata (token usage, debug trace, source highlights) to the response. After the recent refactor all three modes now go through the same shape: `agent = SomeAgent(...); text, tokens = agent.completion(prompt)`. The dispatcher is tiny because the agents are uniform.
+This is the "traffic controller". It reads the selected mode, prepares the context, calls the right agent, and attaches metadata (token usage, debug trace, source highlights) to the response. After the recent refactor all four modes now go through the same shape: `agent = SomeAgent(...); text, tokens = agent.completion(prompt)`. The dispatcher is tiny because the agents are uniform.
 
 ### 1.3 Reasoning Layer — `agents/`
 
-**Responsibility:** Produce an answer given a question and a corpus. Three sibling agent classes, each in its own sub-folder:
+**Responsibility:** Produce an answer given a question and a corpus. Four sibling agent classes, each in its own sub-folder:
 
 - **`agents/rlm/`** — `RLMAgent`. Iterative loop (max 10 steps). The model writes Python inside ```repl``` blocks that run in a sandboxed REPL with `context`, `llm_query`, and `llm_query_batched` pre-injected. It finishes by emitting `FINAL(answer)` or `FINAL_VAR(variable)` at the start of a line. This mirrors the reference RLM implementation.
 - **`agents/vector/`** — `VectorRAGAgent` + `VectorEngine`. Embeds chunks with Gemini's embedding model, stores them in ChromaDB, retrieves top-k on each query. Has a **corpus fingerprint** (MD5 of model ID + sorted filenames/sizes) so the index invalidates itself when I edit a source file. Maps cosine distance to a "match quality %" and warns the user when confidence is low.
 - **`agents/file_based/`** — `FileBasedAgent`. Two modes: Fast (dump all summaries, one call) and Router (first call selects relevant files from Head/Mid/Tail previews, second call answers). Designed for short, factual questions.
+- **`agents/nla/`** — `NLAAgent`. Natural Language Autoencoder agent. Three-step pipeline: (1) generate response with Qwen2.5-7B, (2) verbalize layer-20 activations using AV model, (3) reconstruct activations using AR model to compute FVE quality metric. Interprets internal model representations as natural language.
 
 Each folder ships with a `DESIGN.md` (why it is shaped this way) and a `BEHAVIOR.md` (real execution traces + known bugs). I treat those as the source of truth for each agent's quirks.
 
@@ -166,18 +167,18 @@ Wrapping a framework's native state is a common pattern. It makes migration easi
 
 ---
 
-## 4. The Three Agents — A Comparative View
+## 4. The Four Agents — A Comparative View
 
-| Property | File-Based | Vector RAG | RLM |
-|---|---|---|---|
-| **Idea** | Dump (summarized) docs into the prompt. | Retrieve top-k chunks by semantic similarity, then generate. | Give the model a Python REPL so it can *program its own* retrieval. |
-| **Pre-processing** | Pre-written summaries in `data/summaries/`. | Chunk (1000 chars, 200 overlap), embed, index in ChromaDB; fingerprint to detect staleness. | None — raw corpus is bundled into a `context` string at runtime. |
-| **At query time** | Optional router pass picks which files are relevant from Head/Mid/Tail previews. | Embed query, cosine search, top-k, confidence label. | Model writes ```repl``` code to search/slice/summarize; `llm_query` for sub-questions; emits `FINAL(...)`. |
-| **Token cost** | Medium-high (summaries are long). | Low. | Variable, usually the highest. |
-| **Latency** | ~1 API call (Fast) or ~2 (Router). | ~1 embed + 1 generate. | Up to `max_steps` generate calls. |
-| **Best at** | Broad, thematic questions. | Specific fact lookup. | Multi-hop reasoning, cross-document synthesis. |
-| **Failure mode** | Hallucination when a summary loses detail. | Retrieval miss when the answer spans many chunks. | Runaway loops or hitting step cap. |
-| **Public contract** | `completion(query, chat_history=None, verify_enabled=False) -> (text, tokens)` | `completion(query) -> (text, tokens)` | `completion(query) -> (text, tokens)` |
+| Property | File-Based | Vector RAG | RLM | NLA |
+|---|---|---|---|---|
+| **Idea** | Dump (summarized) docs into the prompt. | Retrieve top-k chunks by semantic similarity, then generate. | Give the model a Python REPL so it can *program its own* retrieval. | Interpret layer activations as natural language descriptions. |
+| **Pre-processing** | Pre-written summaries in `data/summaries/`. | Chunk (1000 chars, 200 overlap), embed, index in ChromaDB; fingerprint to detect staleness. | None — raw corpus is bundled into a `context` string at runtime. | None — runs response generation on Qwen2.5-7B with activation hooks. |
+| **At query time** | Optional router pass picks which files are relevant from Head/Mid/Tail previews. | Embed query, cosine search, top-k, confidence label. | Model writes ```repl``` code to search/slice/summarize; `llm_query` for sub-questions; emits `FINAL(...)`. | Generate response, extract layer-20 activation, verbalize via AV model, reconstruct via AR model, compute FVE. |
+| **Token cost** | Medium-high (summaries are long). | Low. | Variable, usually the highest. | None (Modal serverless, billed separately). |
+| **Latency** | ~1 API call (Fast) or ~2 (Router). | ~1 embed + 1 generate. | Up to `max_steps` generate calls. | ~3 model calls (Qwen, AV, AR). |
+| **Best at** | Broad, thematic questions. | Specific fact lookup. | Multi-hop reasoning, cross-document synthesis. | Understanding what the model was "thinking" (research/interpretability). |
+| **Failure mode** | Hallucination when a summary loses detail. | Retrieval miss when the answer spans many chunks. | Runaway loops or hitting step cap. | Low FVE if activation isn't well-explained by description. |
+| **Public contract** | `completion(query, chat_history=None, verify_enabled=False) -> (text, tokens)` | `completion(query, verify_enabled=False) -> (text, tokens)` | `completion(query) -> (text, tokens)` | `completion(query) -> (text, tokens, nla_analysis)` |
 
 Each agent has its own `DESIGN.md` documenting the *why* and a `BEHAVIOR.md` documenting real traces (including known bugs like the content-tag collision in RLM or the "College" semantic gap in Vector RAG). Those files are the living documentation.
 
@@ -231,6 +232,6 @@ Because the architecture is layered, each kind of change has a known "surgery pa
 
 - **Add a project** → drop `data/projects/new.md`. Zero code.
 - **Add a page** → create `pages/xyz.py`. Streamlit auto-discovers it; update `utils/sidebar.py` if you want a nav link.
-- **Add an AI mode** → create `agents/<mode>/<mode>_agent.py` with a class that exposes `completion(query) -> (text, tokens)`; add a mode constant in `config/app_config.py`; add a branch in `components/agent_dispatch.py`. All three existing agents follow this shape, so the dispatcher branch is small.
+- **Add an AI mode** → create `agents/<mode>/<mode>_agent.py` with a class that exposes `completion(query) -> (text, tokens)`; add a mode constant in `config/app_config.py`; add a branch in `components/agent_dispatch.py`. All four existing agents follow this shape (see NLA as a recent example), so the dispatcher branch is small.
 - **Change embedding model** → update `EMBEDDING_MODEL_ID` in `config/app_config.py`. The corpus fingerprint will notice the change and trigger a full re-embed on next query.
 - **Swap LLM provider** → the Gemini client is passed into agents from `app.py`. Replace the client; adapt the response-parsing code inside each agent's `completion`. Not trivial but not huge.

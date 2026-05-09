@@ -11,7 +11,7 @@ sequenceDiagram
     participant U as User (Browser)
     participant A as app.py
     participant D as agent_dispatch.py
-    participant AG as Agent (RLM/Vector/File)
+    participant AG as Agent (RLM/Vector/File/NLA)
     participant E as Engines (Trace/Vector)
     participant G as Google Gemini API
     participant S as state.py

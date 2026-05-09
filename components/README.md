@@ -8,7 +8,7 @@ This directory bridges the gap between our raw backend logic (like AI agents or 
 The traffic controller for AI requests. When a user submits a prompt in `app.py`, it is immediately sent here.
 **What it does:**
 - Manages the visual `st.spinner()` and `st.status()` expandable UI elements.
-- Routes the prompt to the correct logic depending on the active mode (Vector RAG, File-Based, or RLM).
+- Routes the prompt to the correct logic depending on the active mode (Vector RAG, File-Based, RLM, or NLA).
 - Captures token usage and triggers the Trace Engine (if verification is enabled) before finally appending the answer back to the chat history.
 
 ### `chat_renderer.py`
