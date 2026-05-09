@@ -33,10 +33,11 @@ The sidebar contains:
 ## Chat Page (main page)
 
 - **Header**: "Hey there! Ask me anything about Khuong"
-- **Agent Mode selector** — three radio button options at the top:
+- **Agent Mode selector** — four radio button options at the top:
   - Recursive Language Model (RLM): iterative reasoning agent; default mode.
   - Standard RAG (Vector + Sliding Window): fast, low-token retrieval mode.
   - File-Based Context: loads all raw documents into context; thorough but token-heavy.
+  - Natural Language Autoencoder (NLA): interprets what the model was thinking by analyzing internal activations; experimental/research mode.
 - **Feature Bar** — a row of buttons below the mode selector:
   - **Reasoning Mode toggle** (Thinking vs Instant):
     - **🧠 Thinking Mode**: The AI pauses to analyze your intent and ask for clarification if your question is ambiguous.
