@@ -248,13 +248,23 @@ def resume_from_checkpoint(client, agent_mode, docs, api_key):
             return
 
         # Unified status bar across all generation phases
-        label = "🧠 Thinking..." if agent_mode == MODE_RLM else "🛠️ Generating Answer..."
-        with st.status(label, expanded=True) as status:
+        # In NLA mode, collapse the status bar since the NLA analysis is the focus
+        if agent_mode == MODE_RLM:
+            label = "🧠 Thinking..."
+            expanded = True
+        elif agent_mode == MODE_NLA:
+            label = "🔬 Analyzing Activations..."
+            expanded = False  # Hide in NLA mode
+        else:
+            label = "🛠️ Generating Answer..."
+            expanded = True
+
+        with st.status(label, expanded=expanded) as status:
             response_text, token_stats = _run_agent(
                 client, agent_mode, enriched_prompt, docs, api_key, steps_log, status=status
             )
             st.session_state.turn_tokens += token_stats.get("total", 0)
-                
+
             _run_post_generation(
                 client, checkpoint["original_message"], response_text,
                 docs, steps_log, token_stats, status=status, force_concern_category=None
@@ -267,10 +277,20 @@ def generate_answer(client, agent_mode, prompt_text, docs, api_key):
     """Dispatches the prompt to the selected agent model and manages the process UI."""
     try:
         steps_log = []
-        
+
         # Unified status bar across all generation phases
-        label = "🧠 Thinking..." if agent_mode == MODE_RLM else "🛠️ Generating Answer..."
-        with st.status(label, expanded=True) as status:
+        # In NLA mode, collapse the status bar since the NLA analysis is the focus
+        if agent_mode == MODE_RLM:
+            label = "🧠 Thinking..."
+            expanded = True
+        elif agent_mode == MODE_NLA:
+            label = "🔬 Analyzing Activations..."
+            expanded = False  # Hide in NLA mode
+        else:
+            label = "🛠️ Generating Answer..."
+            expanded = True
+
+        with st.status(label, expanded=expanded) as status:
             response_text, token_stats = _run_agent(
                 client, agent_mode, prompt_text, docs, api_key, steps_log, status=status
             )

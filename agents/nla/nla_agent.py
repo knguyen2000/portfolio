@@ -10,8 +10,7 @@ Returns (response_text, token_stats, nla_analysis_dict).
 FVE ≈ cosine similarity under L2-normalisation to sqrt(d_model); range [-1, 1].
 """
 import requests
-
-_MODAL_ENDPOINT = "https://knguyen2000--portfolio-nla-web-generate.modal.run"
+from config.app_config import MODAL_NLA_ENDPOINT
 
 
 class NLAAgent:
@@ -32,7 +31,7 @@ class NLAAgent:
         self.log("Calling Modal NLA endpoint (Qwen2.5-7B + AV + AR)...")
         try:
             resp = requests.post(
-                _MODAL_ENDPOINT,
+                MODAL_NLA_ENDPOINT,
                 json={"prompt": user_query},
                 timeout=600,
             )

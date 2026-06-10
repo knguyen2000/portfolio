@@ -8,7 +8,7 @@ import os
 # --- Internal Imports ---
 from config.app_config import (
     PAGE_TITLE, PAGE_ICON, PAGE_LAYOUT,
-    MODE_FILE_BASED, MODE_VECTOR_RAG, MODE_RLM,
+    MODE_FILE_BASED, MODE_VECTOR_RAG, MODE_RLM, MODE_NLA,
     AVAILABLE_MODES, DEFAULT_MODE_INDEX,
 )
 from styles import APP_CSS, WARNING_STYLE
@@ -97,20 +97,29 @@ try:
     with col_chat:
         # --- Feature Bar (Reasoning & Verification) ---
         show_verify = agent_mode in (MODE_FILE_BASED, MODE_VECTOR_RAG)
-        feat_cols = st.columns(2) if show_verify else [st.container()]
-        
-        # 1. Reasoning Mode (Global)
-        with feat_cols[0]:
-            ckpt_on = st.session_state.get("checkpoint_enabled", True)
-            ckpt_label = "🧠 Thinking" if ckpt_on else "⚡ Instant"
-            ckpt_type = "primary" if ckpt_on else "secondary"
-            if st.button(ckpt_label, type=ckpt_type, use_container_width=True, key="ckpt_toggle_btn"):
-                st.session_state.checkpoint_enabled = not ckpt_on
-                st.rerun()
+        show_checkpoint = agent_mode != MODE_NLA  # Hide in NLA mode (no clarification needed)
+
+        if show_checkpoint and show_verify:
+            feat_cols = st.columns(2)
+        elif show_checkpoint or show_verify:
+            feat_cols = [st.container()]
+        else:
+            feat_cols = []
+
+        # 1. Reasoning Mode (Global) - Hidden in NLA mode
+        if show_checkpoint:
+            with feat_cols[0]:
+                ckpt_on = st.session_state.get("checkpoint_enabled", True)
+                ckpt_label = "🧠 Thinking" if ckpt_on else "⚡ Instant"
+                ckpt_type = "primary" if ckpt_on else "secondary"
+                if st.button(ckpt_label, type=ckpt_type, use_container_width=True, key="ckpt_toggle_btn"):
+                    st.session_state.checkpoint_enabled = not ckpt_on
+                    st.rerun()
                 
         # 2. Verify Sources
         if show_verify:
-            with feat_cols[1]:
+            col_idx = 1 if show_checkpoint else 0
+            with feat_cols[col_idx]:
                 verify_on = st.session_state.get("verify_enabled", False)
                 verify_label = "✅ Verify: ON" if verify_on else "🔍 Verify Sources"
                 verify_type = "primary" if verify_on else "secondary"
@@ -125,6 +134,8 @@ try:
             st.markdown(f"<p style='{WARNING_STYLE}'>⚡ Retrieval Strategy: <b>Semantic Search (RAG)</b>. Fast and low token usage, but may miss context (enable 'Verify' to check).</p>", unsafe_allow_html=True)
         elif agent_mode == MODE_RLM:
             st.markdown(f"<p style='{WARNING_STYLE}'>🧠 Multi-Step Reasoning: Likely to consume the most tokens and take the longest to complete.</p>", unsafe_allow_html=True)
+        elif agent_mode == MODE_NLA:
+            st.markdown(f"<p style='{WARNING_STYLE}'>🔬 <b>Natural Language Autoencoder (NLA)</b>: Analyzes and verbalizes the internal representations (Layer 20 activations) of a <b>generic Qwen2.5-7B</b> model.<br>⚠️ <b>Note:</b> This mode has no access to Khuong's portfolio data and is not for asking questions about him.</p>", unsafe_allow_html=True)
 
         if st.session_state.get("verify_enabled") and show_verify:
             st.markdown("<p style='text-align: center; color: gray; font-size: 0.85em; margin-top: -10px;'><i>Click highlighted text in answers to see sources!</i></p>", unsafe_allow_html=True)
@@ -182,7 +193,8 @@ try:
             if client:
                 prompt_text = st.session_state.messages[-1]["content"]
                 # Pre-generation checkpoint check (may set pending_checkpoint and rerun)
-                if not check_and_set_checkpoint(client, prompt_text):
+                # Bypassed entirely in NLA mode as no clarification is needed/expected
+                if agent_mode == MODE_NLA or not check_and_set_checkpoint(client, prompt_text):
                     generate_answer(client, agent_mode, prompt_text, docs, api_key)
             else:
                 st.error("AI model not configured.")

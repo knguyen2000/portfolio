@@ -141,8 +141,9 @@ def render_chat_history():
                     if total_tokens > HIGH_TOKEN_WARNING_THRESHOLD:
                         st.warning(f"⚠️ High Token Usage ({total_tokens}).")
 
-                # Debug steps
-                if msg.get("debug_steps"):
+                # Debug steps (hide in NLA mode)
+                is_nla_mode = msg.get("nla_analysis") is not None
+                if msg.get("debug_steps") and not is_nla_mode:
                     with st.status("🧠 Thinking Process", state="complete", expanded=False):
                         for step in msg["debug_steps"]:
                             st.write(step)

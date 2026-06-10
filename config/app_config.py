@@ -31,6 +31,10 @@ VECTOR_CONFIDENCE_HIGH = 70
 VECTOR_CONFIDENCE_LOW = 30
 VECTOR_CAUTION_THRESHOLD = 35
 
+# --- Modal NLA Endpoint ---
+# Override this when switching Modal accounts via: modal profile activate <profile-name>
+MODAL_NLA_ENDPOINT = "https://knguyen2000--portfolio-nla-web-generate.modal.run"
+
 # --- Checkpoint Config ---
 CHECKPOINT_ENABLED_DEFAULT = True
 CHECKPOINT_TYPES = [

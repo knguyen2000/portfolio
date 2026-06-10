@@ -45,6 +45,12 @@ LOCATIONS = {
     "California": [-122.4194, 37.7749], # San Francisco
     "Illinois": [-87.6298, 41.8781], # Chicago
     "Colorado": [-104.9903, 39.7392], # Denver
+    "Washington": [-122.3321, 47.6062], # Seattle
+    "Oregon": [-122.6765, 45.5231], # Portland
+    "Georgia": [-84.3880, 33.7490], # Atlanta
+    "Tennessee": [-86.7816, 36.1627], # Nashville
+    "Indiana": [-86.1581, 39.7684], # Indianapolis
+    "Iowa": [-93.6091, 41.5868], # Des Moines
 }
 
 TITLES = [
@@ -67,7 +73,8 @@ LOCATION_TO_CHAPTER = {
     "Thailand": 4, "Malaysia": 4, "South Korea": 4, "Sweden": 4, 
     "Austria": 4, "Italy": 4, "France": 4, 
     "Virginia": 5, "Washington DC": 5, "Maryland": 5, "New York": 5,
-    "New Jersey": 5, "Pennsylvania": 5, "Massachusetts": 5, "Florida": 5, "California": 5, "Illinois": 5, "Colorado": 5
+    "New Jersey": 5, "Pennsylvania": 5, "Massachusetts": 5, "Florida": 5, "California": 5, "Illinois": 5, "Colorado": 5,
+    "Washington": 5, "Oregon": 5, "Georgia": 5, "Tennessee": 5, "Indiana": 5, "Iowa": 5
 }
 
 GALLERY_CAPTIONS = [
