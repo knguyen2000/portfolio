@@ -51,6 +51,9 @@ LOCATIONS = {
     "Tennessee": [-86.7816, 36.1627], # Nashville
     "Indiana": [-86.1581, 39.7684], # Indianapolis
     "Iowa": [-93.6091, 41.5868], # Des Moines
+    "New Mexico": [-106.6504, 35.0844], # Albuquerque
+    "Oklahoma": [-97.5164, 35.4676], # Oklahoma City
+    "Missouri": [-90.1994, 38.6270], # St. Louis
 }
 
 TITLES = [
@@ -74,7 +77,8 @@ LOCATION_TO_CHAPTER = {
     "Austria": 4, "Italy": 4, "France": 4, 
     "Virginia": 5, "Washington DC": 5, "Maryland": 5, "New York": 5,
     "New Jersey": 5, "Pennsylvania": 5, "Massachusetts": 5, "Florida": 5, "California": 5, "Illinois": 5, "Colorado": 5,
-    "Washington": 5, "Oregon": 5, "Georgia": 5, "Tennessee": 5, "Indiana": 5, "Iowa": 5
+    "Washington": 5, "Oregon": 5, "Georgia": 5, "Tennessee": 5, "Indiana": 5, "Iowa": 5,
+    "New Mexico": 5, "Oklahoma": 5, "Missouri": 5
 }
 
 GALLERY_CAPTIONS = [
