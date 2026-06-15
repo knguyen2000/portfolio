@@ -1,6 +1,15 @@
 # /inspect
 
-Final browser-level check of the running app using chrome-devtools MCP. Catches issues that code analysis and tests cannot: rendering problems, console errors, network failures, and performance regressions.
+Browser-level check of the running app using chrome-devtools MCP. Catches issues that code analysis and tests cannot: rendering problems, console errors, network failures, and performance regressions.
+
+## Modes
+
+`/inspect` runs in **light** mode by default. Use `/inspect full` for the complete suite.
+
+| Mode | When to use | Tool calls |
+|------|-------------|------------|
+| **Light** (default) | After every implementation cycle | ~10-12 |
+| **Full** | Before first PR, after UI-heavy changes, or when dev requests | ~25-30 |
 
 ## Prerequisites
 
@@ -9,11 +18,59 @@ Final browser-level check of the running app using chrome-devtools MCP. Catches 
 
 If the app is not running, start it first and wait for it to be ready.
 
-## Checks
+---
 
-### 1. Page load — all pages
+## Light Mode (default)
 
-Navigate to each page in the app and verify it loads without errors:
+### 1. Page load — changed pages + home
+
+Identify which pages were affected by recent changes (check `git diff --name-only`). Always include Home (`/`). Navigate to each affected page:
+- Check for console errors (`list_console_messages`) — flag errors and warnings
+- Check for failed network requests (`list_network_requests`) — flag 4xx/5xx
+- Take a screenshot of the primary changed page only (not every page)
+
+### 2. Console error triage
+
+Categorize all errors found:
+- **Blocking** — JavaScript errors, uncaught exceptions, React/Streamlit errors
+- **Warning** — deprecation notices, minor warnings
+- **Ignorable** — third-party analytics, browser extension noise
+
+### 3. Interactive smoke test
+
+On the main page:
+- Type a short test query in the chat input
+- Verify a response appears (or loading indicator shows)
+- Check that no console errors appeared during the interaction
+
+### Light Mode Output
+
+```
+## Page Load Results
+| Page | Status | Console Errors | Network Failures |
+|------|--------|---------------|-----------------|
+| Home | OK/Fail | N | N |
+| [changed page] | OK/Fail | N | N |
+
+## Console Errors (if any)
+- [Blocking] error description (page)
+
+## Interactive Test
+- Chat input: OK/Fail
+- Response received: OK/Fail
+```
+
+Verdict: **App looks good** or **N issues found**.
+
+---
+
+## Full Mode (`/inspect full`)
+
+Runs everything in light mode, plus the following additional checks.
+
+### 4. Full page load — all pages
+
+Navigate to every page not already checked in light mode:
 - Home / Chat (`/`)
 - About (`/about`)
 - Projects (`/projects`)
@@ -22,20 +79,9 @@ Navigate to each page in the app and verify it loads without errors:
 - Guestbook (`/guestbook`)
 - Feedback Dashboard (`/feedback_dashboard`)
 
-For each page:
-- Take a screenshot
-- Check for console errors (`list_console_messages`) — flag any errors or warnings
-- Check for failed network requests (`list_network_requests`) — flag any 4xx/5xx responses
-- Verify the page renders content (not a blank screen or error page)
+For each: screenshot, console errors, network failures, verify content renders.
 
-### 2. Console errors
-
-After visiting all pages, report all console errors and warnings. Categorize:
-- **Blocking** — JavaScript errors, uncaught exceptions, React/Streamlit errors
-- **Warning** — deprecation notices, minor warnings
-- **Ignorable** — third-party analytics, browser extension noise
-
-### 3. Lighthouse audit
+### 5. Lighthouse audit
 
 Run a Lighthouse audit on the main page (`/`):
 - Performance score
@@ -43,7 +89,7 @@ Run a Lighthouse audit on the main page (`/`):
 - Best Practices score
 - Flag any score below 70 as a concern
 
-### 4. Performance trace
+### 6. Performance trace
 
 Run a performance trace on the main page:
 - Start trace → interact with the page (type a short query, wait for response) → stop trace
@@ -52,9 +98,9 @@ Run a performance trace on the main page:
   - Layout shifts
   - Slow network requests (>3s)
 
-### 5. Responsive check
+### 7. Responsive check
 
-Test the app at three viewport sizes using `emulate` or `resize_page`:
+Test at three viewport sizes using `emulate` or `resize_page`:
 
 | Device | Width | Height |
 |--------|-------|--------|
@@ -62,38 +108,18 @@ Test the app at three viewport sizes using `emulate` or `resize_page`:
 | Tablet | 768px | 1024px |
 | Desktop | 1440px | 900px |
 
-For each viewport, navigate to the main page (`/`) and the About page (`/about`) — these have the most layout-sensitive content (chat UI, map, cards).
-
-At each viewport:
+For each viewport, navigate to Home (`/`) and About (`/about`):
 - Take a screenshot
-- Check for horizontal overflow (content wider than viewport)
+- Check for horizontal overflow
 - Check for overlapping elements or unreadable text
 - Check that navigation/sidebar is usable
-- Check that interactive elements (buttons, inputs, dropdowns) are tappable at mobile size
+- Check that interactive elements are tappable at mobile size
 
-Flag any layout issues with the viewport size and page where they occur.
+### Full Mode Output
 
-### 6. Interactive smoke test
-
-On the main page:
-- Type a short test query in the chat input
-- Verify a response appears (or loading indicator shows)
-- Check that no console errors appeared during the interaction
-
-## Output
+All light mode output, plus:
 
 ```
-## Page Load Results
-| Page | Status | Console Errors | Network Failures |
-|------|--------|---------------|-----------------|
-| Home | OK/Fail | N | N |
-| About | OK/Fail | N | N |
-| ... | ... | ... | ... |
-
-## Console Errors (if any)
-- [Blocking] error description (page)
-- [Warning] warning description (page)
-
 ## Lighthouse Scores
 | Metric | Score |
 |--------|-------|
@@ -111,10 +137,6 @@ On the main page:
 | Mobile (375px) | Home | OK/Fail | overflow, overlap, etc. |
 | Tablet (768px) | Home | OK/Fail | ... |
 | Desktop (1440px) | Home | OK/Fail | ... |
-
-## Interactive Test
-- Chat input: OK/Fail
-- Response received: OK/Fail
 ```
 
-Then a one-line verdict: **App looks good** or **N issues found**.
+Verdict: **App looks good** or **N issues found**.

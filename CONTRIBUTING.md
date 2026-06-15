@@ -30,12 +30,15 @@ This project uses [Claude Code](https://claude.ai/code) as the primary developme
 
 | Command | When to use |
 |---------|-------------|
-| `/kickoff` | Start work — paste tasks, get a SPEC, serial vs parallel recommendation |
-| `/preflight` | Before every commit — 11-check quality gate |
+| `/kickoff` | Start work — paste tasks, get a SPEC, serial vs parallel recommendation. Redirects to `/hotfix` for single small fixes. |
+| `/hotfix` | Single urgent or trivial fix — same quality checks as `/kickoff`, skips multi-task ceremony (independence analysis, workflow, journal) |
+| `/resume` | Continue work from a previous session — reads journals, restores branch, presents what's left |
+| `/preflight` | Before every PR — 11+ check quality gate. Use `/preflight recheck` to re-run only failed checks. |
 | `/retest` | After fixing a bug found during manual testing |
-| `/conform` | Check if your changes match codebase patterns |
+| `/postmerge` | After merging a PR into main — verify main is healthy before merging the next PR. Required for parallel/hybrid workflows. |
+| `/conform` | Check if your changes match codebase patterns (run on committed diff) |
 | `/docsync` | Audit all folder-level docs for staleness |
-| `/inspect` | Final browser-level check — pages, console, Lighthouse, perf |
+| `/inspect` | Browser-level check — light mode by default (~10 tool calls). Use `/inspect full` for Lighthouse, perf trace, and responsive checks. |
 | `/sweep` | Periodic cleanup — find dead code, stale files, .gitignore gaps |
 | `/fix` | Auto-fix lint and format issues |
 | `/add-agent` | Scaffold a new AI agent mode |
@@ -68,12 +71,12 @@ This project uses [Claude Code](https://claude.ai/code) as the primary developme
 
 **Hybrid** — some tasks conflict, others don't. Group conflicting tasks into serial chains; run independent groups in parallel. Example: Tasks 1+2 share `app.py` (serial chain A), Tasks 3+4 share state keys (serial chain B), but groups A and B are independent (parallel).
 
-### Testing before merge (parallel and hybrid)
+### Testing before merge (all workflows)
 
 1. **Test each worktree/group individually** — catches bugs within each task's scope
-2. **Create a throwaway `test/integration` branch** — merge all task branches into it, run the app, test everything together. This catches cross-task conflicts. Never push this branch.
+2. **Sequential integration test** — create a throwaway `test/integration` branch and merge task branches **one at a time in merge order**, running tests after each merge. This simulates the real merge sequence and catches issues that all-at-once merging misses. Never push this branch.
 3. **Create separate PRs** — one per task (not one giant PR). Reviewer sees focused, reviewable diffs.
-4. **Merge in dependency order** — rebase and re-test between each merge
+4. **Merge in dependency order with `/postmerge` gates** — after each PR merge into main, run `/postmerge` to verify main is healthy (tests, lint, imports, `/inspect` light, feature spot-check). Never merge the next PR until `/postmerge` passes.
 
 `/kickoff` runs this analysis automatically and recommends the right approach.
 
@@ -89,23 +92,32 @@ The journal is updated at natural breakpoints (story completion, design decision
 ### Typical workflow (after kickoff)
 
 1. **Claude writes tests first** (TDD) — failing tests that define the feature
-2. **Claude implements** — code until tests pass
-3. **You test manually** — run the app, try edge cases
-4. **If bugs found** — tell Claude, then run `/retest` (appends new test cases, never modifies existing ones)
-5. **When satisfied** — tell Claude to "commit" or "ship it"
-6. **Claude runs the shipping checklist**: `/conform` → `/preflight` → `/inspect` → commit → branch → PR
-7. **You review the PR** — approve and merge when ready
+2. **Claude implements** — extends existing code by default; if modifying existing lines, runs impact analysis and tests all affected features
+3. **Claude tests in browser** — runs `/inspect` (light mode: page loads, console errors, smoke test). Fixes any issues found.
+4. **You test manually** — focus on business logic, UX, and edge cases. Claude already verified the app runs and renders.
+5. **If bugs found** — tell Claude, then run `/retest` → fix → `/inspect` again (only after code changes, never redundantly)
+6. **When satisfied** — tell Claude to "commit" or "ship it"
+7. **Claude verifies** `/conform` and `/preflight` already passed during the per-task cycle, stages files, commits, pushes, and creates the PR
+8. **You review the PR** — approve and merge when ready
+
+### Resuming a previous session
+
+If a session ran out of context or you're picking up where you left off:
+1. Run `/resume` — Claude reads task journals, checks out the right branch, and shows remaining work
+2. Approve the continuation plan — Claude picks up from the next uncompleted story
 
 ### What "done" means
 
 A feature is done when all of these are true:
 
 - [ ] Tests pass (`pytest`)
-- [ ] `/conform` shows no issues
-- [ ] `/preflight` passes (all 11 checks)
-- [ ] `/inspect` passes (no console errors, Lighthouse scores above 70)
+- [ ] `/conform` shows no issues (including extensibility check)
+- [ ] `/preflight` passes all checks (including regression scope for modified code)
+- [ ] `/inspect` passed after implementation (light mode at minimum; full mode for UI-heavy changes)
 - [ ] Manual testing confirms the feature works as expected
+- [ ] If existing code was modified: all affected features tested, commit body explains why
 - [ ] Folder-level docs (README.md, DESIGN.md) are updated
+- [ ] Task journal is up to date (Status section reflects current state)
 - [ ] PR is created with Summary, Changes, and Test Plan sections
 
 ## Git Conventions
@@ -165,6 +177,7 @@ Each agent folder has `README.md`, `DESIGN.md`, and `BEHAVIOR.md`. Read them bef
 
 ## Things to know
 
+- **Extend, don't modify** — this codebase grows by extension. Add new functions, modules, config entries. Only modify existing code when there's no additive path, and when you do, keep changes minimal, run impact analysis, and test all affected features. See CLAUDE.md "Extensibility and Modification Policy" for the full protocol.
 - **Free-tier rate limits shape the architecture** — RLM's `max_steps=10` (not 30) and sequential sub-LLM calls are rate-limit driven, not performance choices. Don't "optimize" them into parallel calls.
 - **NLA has no portfolio knowledge** — it explores model internals only. The trace engine doesn't apply to NLA responses. This is by design.
 - **Trace engine is O(N*M)** — it scans response against corpus character-by-character. Fine for current scale, would need a suffix array for 10k+ docs.

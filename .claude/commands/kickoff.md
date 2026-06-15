@@ -21,6 +21,12 @@ The developer pastes raw tasks into `TASKS.md` in the project root. Tasks can be
 
 If `TASKS.md` does not exist, ask the developer to create it and paste their tasks.
 
+## Step 0: Size check — redirect to /hotfix if appropriate
+
+Read `TASKS.md`. If the round contains **a single task** that is clearly a small fix (bug, config change, <5 files, one story), suggest: "This looks like a single fix — want to use `/hotfix` instead? Same quality checks, faster on-ramp."
+
+If the dev confirms, stop and run `/hotfix`. If they decline or there are multiple tasks, continue below.
+
 ## Step 1: Parse and understand
 
 Read `TASKS.md`. For each task, extract:
@@ -39,18 +45,6 @@ For each task, compare against the SPEC template (`.claude/templates/SPEC.md`). 
 - Unstated dependencies between tasks
 
 **Do NOT assume answers.** Ask the developer to fill every gap. Present questions grouped by task, clearly numbered, so the dev can answer efficiently.
-
-Example:
-```
-## Task 1: Slow Server Response (TTFB)
-1. What's the target TTFB? (e.g., under 600ms, under 1s?)
-2. Should lazy loading use a loading skeleton or spinner?
-3. Are there specific resources you know are slow to init?
-
-## Task 2: Layout Shift (CLS)
-4. Target CLS score? (e.g., under 0.1?)
-5. Should we fix all pages or just the main page?
-```
 
 Wait for answers before proceeding.
 
@@ -75,65 +69,60 @@ For each pair of tasks:
   4. Check for shared UI — do they both modify the same page or component?
 ```
 
-Report the result as an independence matrix and recommend one of three workflows:
-
-### Recommendation: Serial
-When most or all tasks have conflicts.
-```
-### Independence Matrix
-| | Task 1 | Task 2 | Task 3 |
-|---|---|---|---|
-| Task 1 | - | CONFLICT: both touch app.py | CONFLICT: shared styles.py |
-| Task 2 | CONFLICT | - | CONFLICT: shared state keys |
-| Task 3 | CONFLICT | CONFLICT | - |
-
-### Recommendation: Serial
-All tasks share files. Work sequentially.
-
-Suggested order:
-1. Task 1 — foundational, changes load timing
-2. Task 3 — depends on stable load timing
-3. Task 2 — most isolated
-
-Each task gets its own branch and PR.
-```
-
-### Recommendation: Parallel
-When all tasks are fully independent.
-```
-### Recommendation: Parallel
-All tasks touch separate files with no shared state.
-
-Each task gets its own git worktree and branch.
-Define shared interfaces before splitting:
-- [list any contracts between tasks]
-```
-
-### Recommendation: Hybrid
-When some tasks are independent but others conflict. Group conflicting tasks into serial chains, run independent groups in parallel.
-```
-### Independence Matrix
-| | Task 1 | Task 2 | Task 3 | Task 4 |
-|---|---|---|---|---|
-| Task 1 | - | CONFLICT | OK | OK |
-| Task 2 | CONFLICT | - | OK | OK |
-| Task 3 | OK | OK | - | CONFLICT |
-| Task 4 | OK | OK | CONFLICT | - |
-
-### Recommendation: Hybrid
-Two independent groups with internal dependencies.
-
-Group A (worktree 1): Task 1 → Task 2 (serial, share app.py)
-Group B (worktree 2): Task 3 → Task 4 (serial, share state keys)
-
-Groups A and B run in parallel — no shared files between groups.
-```
+Report the result as an independence matrix and recommend one of three workflows: **Serial**, **Parallel**, or **Hybrid**.
 
 ## Step 5: Confirm and start
 
 Present the SPEC.md and workflow recommendation to the developer. Wait for approval before any implementation.
 
-Once approved, create a journal file for each task: `JOURNAL-<branch-name>.md` in the project root. Initialize it with the task name, branch, SPEC reference, and story checklist. See CLAUDE.md "Task Journal" for the format and rules.
+Once approved, create a journal file for each task: `JOURNAL-<branch-name>.md` in the project root. See CLAUDE.md "Task Journal" for format and rules.
+
+---
+
+## Worktree Setup
+
+Gitignored files (secrets, config) don't exist in new worktrees. After creating any worktree, immediately copy required config:
+
+```
+mkdir -p <worktree>/.streamlit
+cp .streamlit/secrets.toml <worktree>/.streamlit/secrets.toml
+```
+
+Copy any other gitignored config the app needs (`.env`, etc.). Do this BEFORE implementation starts.
+
+Applies to parallel and hybrid workflows only. Serial doesn't use worktrees.
+
+---
+
+## Per-Task Cycle
+
+Every task — regardless of serial, parallel, or hybrid — follows this cycle:
+
+```
+implement (TDD, extend-first) → commit per story
+  │
+  /inspect (light — page loads, console errors, smoke test)
+  │  fix any issues found, commit fixes
+  │
+  ← dev manual tests (business logic, UX, edge cases only —
+  │  Claude already verified the app runs and renders)
+  │
+  if dev found bugs:
+  │  /retest → fix → /inspect again (only now, not otherwise)
+  │
+  /conform (on committed diff — checks patterns and style)
+  │  fix any conformance issues, commit fixes
+  │
+  /preflight (pre-PR gate — all 11+ checks including regression scope)
+  │
+  done — ready for PR
+```
+
+**Ordering:** `/conform` runs on the committed diff (post-commit). `/preflight` runs last as the final gate before PR creation. If `/preflight` fails, fix issues and run `/preflight recheck` to re-run only the failed checks.
+
+**`/inspect` runs in light mode by default.** Use `/inspect full` only before the first PR on a UI-heavy branch or when the dev requests it. `/inspect` only runs a second time if code changed from bugfixes.
+
+**Extend-first implementation:** During TDD, prefer adding new functions/modules over modifying existing code. If modification is needed, follow the Modification Policy in CLAUDE.md — impact analysis, minimal scope, test all affected paths.
 
 ---
 
@@ -143,22 +132,26 @@ Once approved, create a journal file for each task: `JOURNAL-<branch-name>.md` i
 main (up to date)
   │
   git checkout -b feat/task-1
-  │  implement (TDD) → commit per story
-  │  /conform → /preflight → /inspect
+  │  [per-task cycle]
   │  git push -u origin feat/task-1
   │  create PR #1 → report URL to dev
   │  ← dev reviews + merges PR #1
   │
   git checkout main && git pull
+  /postmerge — verify main is healthy after merge
   │
   git checkout -b feat/task-2
-  │  implement → ship checklist → PR #2
+  │  [per-task cycle]
+  │  git push → PR #2
   │  ← dev reviews + merges PR #2
+  │
+  git checkout main && git pull
+  /postmerge
   │
   (repeat per task)
 ```
 
-Each task starts from a fresh, up-to-date main. Never stack branches.
+Each task starts from a fresh, verified main. Never stack branches. Never start the next task until `/postmerge` confirms main is healthy.
 
 ## Execution: Parallel
 
@@ -169,24 +162,39 @@ main (up to date)
   git worktree add ../task-1 -b feat/task-1
   git worktree add ../task-2 -b feat/task-2
   git worktree add ../task-3 -b feat/task-3
+  + copy gitignored config (see Worktree Setup)
 
-  ── Implement (each agent in its worktree) ──────
-  Each agent: TDD → implement → /conform → /preflight → /inspect → push
+  ── Implement ───────────────────────────────────
+  Each agent in its worktree: [per-task cycle]
 
-  ── Stage 1: Test each worktree individually ────
-  cd ../task-1 → streamlit run app.py → manual test
-  cd ../task-2 → manual test
-  cd ../task-3 → manual test
-  (catches bugs within each task's scope)
+  ── Stage 1: Dev manual tests each worktree ─────
+  (included in per-task cycle above)
 
-  ── Stage 2: Integration test ───────────────────
+  ── Stage 2: Sequential integration test ────────
+  Simulate the real merge order on a throwaway branch:
+
   git checkout main
   git checkout -b test/integration        ← throwaway, never pushed
-  git merge feat/task-1
-  git merge feat/task-2
-  git merge feat/task-3
-  streamlit run app.py → test everything together
-  (catches cross-task conflicts)
+
+  Step 1: merge task-1, then test
+    git merge feat/task-1
+    pytest
+    streamlit run app.py → smoke test
+
+  Step 2: merge task-2 on top, then test again
+    git merge feat/task-2
+    pytest
+    streamlit run app.py → smoke test (both task-1 + task-2 features)
+
+  Step 3: merge task-3 on top, then test everything
+    git merge feat/task-3
+    pytest
+    streamlit run app.py → full manual test (all 3 together)
+    /inspect (light) — final combined check
+
+  If any step fails, the issue is between that task and the ones
+  already merged. Fix on the failing task's branch, then re-run
+  the sequential integration from the top.
 
   ── Stage 3: Create PRs (1 per task) ────────────
   Each feature branch creates its own PR against main:
@@ -195,10 +203,27 @@ main (up to date)
     PR #3: feat/task-3 → main
   Report all PR URLs with recommended merge order.
 
-  ── Stage 4: Merge in dependency order ──────────
-  Dev reviews + merges PR #1 (most foundational)
-  Rebase feat/task-2 onto updated main → retest → dev merges PR #2
-  Rebase feat/task-3 onto updated main → retest → dev merges PR #3
+  ── Stage 4: Merge with post-merge verification ─
+  Dev reviews + merges PR #1
+    → /postmerge (verify main after PR #1)
+    → only proceed to PR #2 after /postmerge passes
+
+  Rebase feat/task-2 onto updated main → retest
+  Dev merges PR #2
+    → /postmerge (verify main after PR #1 + PR #2)
+    → only proceed to PR #3 after /postmerge passes
+
+  Rebase feat/task-3 onto updated main → retest
+  Dev merges PR #3
+    → /postmerge (final — verify main with all 3 merged)
+
+  ── If rebase conflicts ─────────────────────────
+  1. Resolve conflicts in the conflicting branch
+  2. Run pytest to verify all tests pass
+  3. Run /inspect (light) only if UI files were in the conflict
+  4. Amend or add a fixup commit with the resolution
+  5. Update the PR — do NOT force-push; push the resolution commit
+  6. Dev re-reviews the conflict resolution before merging
 
   ── Stage 5: Cleanup ────────────────────────────
   git worktree remove ../task-1
@@ -217,42 +242,67 @@ main (up to date)
   ── Branch out (1 worktree per group) ───────────
   git worktree add ../group-a -b feat/group-a-task-1
   git worktree add ../group-b -b feat/group-b-task-3
+  + copy gitignored config (see Worktree Setup)
 
   ── Implement groups in parallel ────────────────
   Group A worktree:
-    Task 1: implement → commit → ship checklist
+    Task 1: [per-task cycle]
     git checkout -b feat/group-a-task-2   ← branch from task-1
-    Task 2: implement → commit → ship checklist
+    Task 2: [per-task cycle]
 
   Group B worktree:
-    Task 3: implement → commit → ship checklist
+    Task 3: [per-task cycle]
     git checkout -b feat/group-b-task-4   ← branch from task-3
-    Task 4: implement → commit → ship checklist
+    Task 4: [per-task cycle]
 
-  ── Stage 1: Test each group's final branch ─────
-  cd ../group-a → streamlit run app.py → manual test
-  cd ../group-b → manual test
+  ── Stage 1: Sequential integration test ────────
+  Simulate the real merge order on a throwaway branch:
 
-  ── Stage 2: Integration test ───────────────────
-  git checkout -b test/integration        ← throwaway
-  git merge feat/group-a-task-2           ← tip of group A chain
-  git merge feat/group-b-task-4           ← tip of group B chain
-  streamlit run app.py → test everything together
+  git checkout main
+  git checkout -b test/integration        ← throwaway, never pushed
 
-  ── Stage 3: Create PRs ────────────────────────
+  Step 1: merge group A tip, then test
+    git merge feat/group-a-task-2
+    pytest
+    streamlit run app.py → smoke test
+
+  Step 2: merge group B tip on top, then test everything
+    git merge feat/group-b-task-4
+    pytest
+    streamlit run app.py → full manual test (all groups together)
+    /inspect (light) — final combined check
+
+  If any step fails, fix on the failing group's branch,
+  then re-run the sequential integration from the top.
+
+  ── Stage 2: Create PRs ────────────────────────
   Within each group, create 1 PR per task (not 1 per group):
     PR #1: feat/group-a-task-1 → main
     PR #2: feat/group-a-task-2 → main (after PR #1 merges)
     PR #3: feat/group-b-task-3 → main
     PR #4: feat/group-b-task-4 → main (after PR #3 merges)
 
-  ── Stage 4: Merge ──────────────────────────────
+  ── Stage 3: Merge with post-merge verification ─
   Merge the most foundational group first:
-    merge PR #1 → rebase PR #2 → retest → merge PR #2
-    merge PR #3 → rebase PR #4 → retest → merge PR #4
-  (groups can interleave if they don't conflict)
 
-  ── Stage 5: Cleanup ────────────────────────────
+    merge PR #1 → /postmerge
+    rebase PR #2 → retest → merge PR #2 → /postmerge
+
+    merge PR #3 → /postmerge
+    rebase PR #4 → retest → merge PR #4 → /postmerge (final)
+
+  (groups can interleave if they don't conflict)
+  Never merge the next PR until /postmerge passes on main.
+
+  ── If rebase conflicts ─────────────────────────
+  Same protocol as parallel workflow:
+  1. Resolve conflicts in the conflicting branch
+  2. Run pytest to verify all tests pass
+  3. Run /inspect (light) only if UI files were in the conflict
+  4. Add a resolution commit (don't force-push)
+  5. Dev re-reviews before merging
+
+  ── Stage 4: Cleanup ────────────────────────────
   git worktree remove ../group-a
   git worktree remove ../group-b
   git branch -D test/integration
@@ -266,5 +316,7 @@ main (up to date)
 - Never start implementing before the dev approves the SPEC and workflow
 - Never skip the independence analysis, even if the dev says "just do them in parallel"
 - Never merge PRs without dev approval — Claude creates PRs but dev merges
+- Never merge the next PR until `/postmerge` passes on main (all workflows — serial, parallel, and hybrid)
 - Never push or PR the `test/integration` branch — it's local and throwaway
 - If the dev overrides the recommendation (e.g., forces parallel on conflicting tasks), warn about the specific conflicts but proceed if they insist
+- **Extend, don't modify** — when implementing, prefer adding new code over changing existing lines. If modification is unavoidable, follow the Modification Policy in CLAUDE.md (impact analysis, minimal scope, test all affected paths)

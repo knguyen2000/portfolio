@@ -20,10 +20,10 @@ models_list.txt
 list_models.py
 settings.*
 
-# Planning artifacts
-SPEC.md
-TODO.md
-TASKS.md
+# Planning artifacts (root only — not templates)
+/SPEC.md
+/TODO.md
+/TASKS.md
 JOURNAL-*.md
 
 # OS / IDE
