@@ -8,6 +8,7 @@ This module is the central traffic controller. It:
 4. Runs Workflow Intelligence for concern detection
 5. Handles all Gemini API errors with user-friendly messages
 """
+
 import streamlit as st
 
 from config.app_config import MODE_NLA, MODE_RLM, MODE_VECTOR_RAG, MODEL_ID
@@ -24,7 +25,7 @@ def _handle_booking_flow(client, agent_mode: str, prompt_text: str):
     """
     from services.calendly import (
         CalendlyClient,
-        create_booking,
+        build_booking_link,
         detect_scheduling_intent,
         extract_booking_info,
         fetch_available_slots,
@@ -34,7 +35,6 @@ def _handle_booking_flow(client, agent_mode: str, prompt_text: str):
         pick_best_slot,
         validate_email,
     )
-
 
     booking = st.session_state.get("booking_flow")
     is_scheduling = detect_scheduling_intent(prompt_text)
@@ -102,7 +102,10 @@ def _handle_booking_flow(client, agent_mode: str, prompt_text: str):
     if not booking.get("email"):
         booking["awaiting"] = "email"
         st.session_state.booking_flow = booking
-        return (f"Thanks, {booking['name']}! What's the best email address for the calendar invite?", {"total": total_tokens})
+        return (
+            f"Thanks, {booking['name']}! What's the best email address for the calendar invite?",
+            {"total": total_tokens},
+        )
 
     if not validate_email(booking["email"]):
         booking["email"] = None
@@ -173,55 +176,48 @@ def _handle_booking_flow(client, agent_mode: str, prompt_text: str):
             {"total": total_tokens},
         )
 
-    # --- Book it ---
-    result = create_booking(
-        calendly,
-        event_type_uri=event_type["uri"],
-        name=booking["name"],
-        email=booking["email"],
-    )
-
-    st.session_state.booking_flow = None  # always clear after attempt
-
-    if not result:
-        return (
-            f"The booking didn't go through — the slot may have just been taken. "
-            f"You can book directly at [{event_type['name']}]({event_type['scheduling_url']}).",
-            {"total": total_tokens},
-        )
-
+    # --- Generate a pre-filled booking link ---
+    booking_url = build_booking_link(event_type, booking["name"], booking["email"], best_slot["date"])
     slot_time = format_slot_time(best_slot["start_time"], timezone=timezone)
+
+    st.session_state.booking_flow = None
+
     return (
-        f"✅ **Meeting booked!**\n\n"
-        f"- **Name**: {result['name']}\n"
-        f"- **Email**: {result['email']}\n"
-        f"- **Meeting**: {event_type['name']} ({event_type['duration']} min)\n"
-        f"- **When**: {best_slot['date']} at {slot_time}\n\n"
-        f"A confirmation has been sent to **{result['email']}**. Khuong is looking forward to it!",
+        f"Great news — I found a slot that matches!\n\n"
+        f"📅 **{event_type['name']}** ({event_type['duration']} min)\n"
+        f"🕐 **{best_slot['date']}** at **{slot_time}**\n\n"
+        f"👉 [**Book this time**]({booking_url})\n\n"
+        f"Your name and email are pre-filled — just confirm on the Calendly page to complete the booking!",
         {"total": total_tokens},
     )
 
 
 def _make_logger(status, steps_log):
     """Creates a closure that writes to a Streamlit status widget, debug log, and steps list."""
+
     def _log(msg):
         status.write(msg)
         log_event(msg)
         steps_log.append(msg)
+
     return _log
+
 
 def _deduplicate_response(text):
     """
     Defensively deduplicates mirrored text (A\nA) often seen in newer Gemini models
     when pushed for strict verbatim extraction. Robust against whitespace quirks.
     """
-    if not text: return ""
+    if not text:
+        return ""
     text = text.strip()
 
     import re
+
     # Remove all whitespace to check for perfect duplication
-    clean_text = re.sub(r'\s+', '', text)
-    if not clean_text: return text
+    clean_text = re.sub(r"\s+", "", text)
+    if not clean_text:
+        return text
 
     if len(clean_text) % 2 == 0:
         half_len = len(clean_text) // 2
@@ -232,10 +228,10 @@ def _deduplicate_response(text):
                 if not char.isspace():
                     char_count += 1
                 if char_count == half_len:
-                    return text[:i+1].strip()
+                    return text[: i + 1].strip()
 
     # Fallback to paragraph logic for weird formatting cases
-    paragraphs = [p.strip() for p in text.split('\n') if p.strip()]
+    paragraphs = [p.strip() for p in text.split("\n") if p.strip()]
     if len(paragraphs) > 1 and len(paragraphs) % 2 == 0:
         half = len(paragraphs) // 2
         if paragraphs[:half] == paragraphs[half:]:
@@ -261,14 +257,12 @@ def _run_agent(client, agent_mode, prompt_text, docs, api_key, steps_log, status
     elif agent_mode == MODE_VECTOR_RAG:
         log_event("Vector RAG Mode Selected")
         agent = VectorRAGAgent(client, MODEL_ID, api_key=api_key, docs=raw_docs, log_callback=logger)
-        response_text, token_stats = agent.completion(
-            prompt_text,
-            verify_enabled=st.session_state.verify_enabled
-        )
+        response_text, token_stats = agent.completion(prompt_text, verify_enabled=st.session_state.verify_enabled)
 
     elif agent_mode == MODE_NLA:
         log_event("NLA Mode Selected")
         from agents.nla.nla_agent import NLAAgent
+
         agent = NLAAgent(client, MODEL_ID, log_callback=logger)
         response_text, token_stats, nla_analysis = agent.completion(prompt_text)
         st.session_state.pending_nla_analysis = nla_analysis
@@ -279,13 +273,15 @@ def _run_agent(client, agent_mode, prompt_text, docs, api_key, steps_log, status
         response_text, token_stats = agent.completion(
             user_query=prompt_text,
             chat_history=st.session_state.messages[:-1],
-            verify_enabled=st.session_state.verify_enabled
+            verify_enabled=st.session_state.verify_enabled,
         )
 
     return response_text, token_stats
 
 
-def _run_post_generation(client, prompt_text, response_text, docs, steps_log, token_stats, status=None, force_concern_category=None):
+def _run_post_generation(
+    client, prompt_text, response_text, docs, steps_log, token_stats, status=None, force_concern_category=None
+):
     """Run trace engine + workflow intelligence, then append the response."""
     from engines.trace_engine import find_maximal_matches
     from engines.workflow_intelligence import detect_concern
@@ -300,7 +296,8 @@ def _run_post_generation(client, prompt_text, response_text, docs, steps_log, to
     traced_html = None
     sources = []
     if st.session_state.verify_enabled:
-        if status: status.update(label="🔍 Verifying sources...", expanded=False)
+        if status:
+            status.update(label="🔍 Verifying sources...", expanded=False)
         log_event("Verifying sources (Trace Engine)...")
         traced_html, sources = find_maximal_matches(response_text, docs)
 
@@ -311,11 +308,12 @@ def _run_post_generation(client, prompt_text, response_text, docs, steps_log, to
         if force_concern_category:
             log_event(f"Workflow Intelligence: Auto-submitting via Checkpoint Engine ({force_concern_category})")
             from utils.workflow_db import insert_concern
+
             concern_data = {
                 "is_concern": True,
                 "category": force_concern_category,
                 "original_quote": prompt_text,
-                "affected_role": st.session_state.get("user_role", "Visitor")
+                "affected_role": st.session_state.get("user_role", "Visitor"),
             }
             # Auto-submit to DB
             insert_concern(concern_data, prompt_text)
@@ -327,12 +325,15 @@ def _run_post_generation(client, prompt_text, response_text, docs, steps_log, to
             if traced_html:
                 traced_html += msg_append.replace("\n", "<br>")
         else:
-            if status: status.update(label="🖨️ Finalizing answer...", expanded=False)
+            if status:
+                status.update(label="🖨️ Finalizing answer...", expanded=False)
             log_event("Workflow Intelligence: Analyzing message...")
             concern_data, concern_tokens = detect_concern(client, prompt_text)
             st.session_state.turn_tokens += concern_tokens
 
-            log_event(f"Workflow Intelligence result: is_concern={concern_data.get('is_concern')}, category={concern_data.get('category')}")
+            log_event(
+                f"Workflow Intelligence result: is_concern={concern_data.get('is_concern')}, category={concern_data.get('category')}"
+            )
             if concern_data and concern_data.get("is_concern"):
                 concern_data["original_quote"] = prompt_text
                 st.session_state.pending_concern = concern_data
@@ -343,12 +344,20 @@ def _run_post_generation(client, prompt_text, response_text, docs, steps_log, to
         st.session_state.pending_concern = None
 
     # --- Clean Final Rendering ---
-    if status: status.update(label="✅ Complete!", state="complete", expanded=False)
+    if status:
+        status.update(label="✅ Complete!", state="complete", expanded=False)
     log_event("Appended AI msg -> Rerunning")
 
     # Use the globally accumulated tokens for the final display
     total_turn_tokens = st.session_state.get("turn_tokens", token_stats.get("total", 0))
-    append_response(response_text, html_content=traced_html, debug_steps=steps_log, token_usage={"total": total_turn_tokens}, sources=sources, nla_analysis=nla_analysis)
+    append_response(
+        response_text,
+        html_content=traced_html,
+        debug_steps=steps_log,
+        token_usage={"total": total_turn_tokens},
+        sources=sources,
+        nla_analysis=nla_analysis,
+    )
 
 
 def check_and_set_checkpoint(client, prompt_text):
@@ -376,9 +385,7 @@ def check_and_set_checkpoint(client, prompt_text):
         thought_placeholder = st.empty()
         thought_placeholder.markdown("Checking if the question needs clarification...")
         checkpoint = should_checkpoint(
-            client, prompt_text,
-            chat_history=st.session_state.messages[:-1],
-            status_placeholder=thought_placeholder
+            client, prompt_text, chat_history=st.session_state.messages[:-1], status_placeholder=thought_placeholder
         )
 
     if checkpoint is None or not checkpoint.get("needs_checkpoint"):
@@ -393,16 +400,18 @@ def check_and_set_checkpoint(client, prompt_text):
     st.session_state.pending_checkpoint = checkpoint
 
     # Append a checkpoint message to the chat history so it renders as a card
-    st.session_state.messages.append({
-        "role": "assistant",
-        "content": "",
-        "checkpoint": checkpoint,
-        "debug_steps": [
-            f"Checkpoint Engine: {checkpoint['checkpoint_type']}",
-            f"Interpretation: {checkpoint.get('model_interpretation', '')}",
-        ],
-        "token_usage": {},
-    })
+    st.session_state.messages.append(
+        {
+            "role": "assistant",
+            "content": "",
+            "checkpoint": checkpoint,
+            "debug_steps": [
+                f"Checkpoint Engine: {checkpoint['checkpoint_type']}",
+                f"Interpretation: {checkpoint.get('model_interpretation', '')}",
+            ],
+            "token_usage": {},
+        }
+    )
     st.rerun()
     return True  # unreachable after rerun, but semantically correct
 
@@ -442,8 +451,14 @@ def resume_from_checkpoint(client, agent_mode, docs, api_key):
             token_stats = {"total": 0}
 
             _run_post_generation(
-                client, checkpoint["original_message"], response_text,
-                docs, steps_log, token_stats, status=None, force_concern_category=force_concern
+                client,
+                checkpoint["original_message"],
+                response_text,
+                docs,
+                steps_log,
+                token_stats,
+                status=None,
+                force_concern_category=force_concern,
             )
             return
 
@@ -466,8 +481,14 @@ def resume_from_checkpoint(client, agent_mode, docs, api_key):
             st.session_state.turn_tokens += token_stats.get("total", 0)
 
             _run_post_generation(
-                client, checkpoint["original_message"], response_text,
-                docs, steps_log, token_stats, status=status, force_concern_category=None
+                client,
+                checkpoint["original_message"],
+                response_text,
+                docs,
+                steps_log,
+                token_stats,
+                status=status,
+                force_concern_category=None,
             )
     except Exception as e:
         _handle_error(e)
@@ -503,9 +524,7 @@ def generate_answer(client, agent_mode, prompt_text, docs, api_key):
                 client, agent_mode, prompt_text, docs, api_key, steps_log, status=status
             )
             st.session_state.turn_tokens += token_stats.get("total", 0)
-            _run_post_generation(
-                client, prompt_text, response_text, docs, steps_log, token_stats, status=status
-            )
+            _run_post_generation(client, prompt_text, response_text, docs, steps_log, token_stats, status=status)
     except Exception as e:
         _handle_error(e)
 
