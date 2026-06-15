@@ -123,7 +123,10 @@ try:
             _voice_component = st.components.v1.declare_component("voice_agent", path=voice_dir)
 
             pending = st.session_state.get("voice_response") or ""
-            component_val = _voice_component(response=pending, key="voice_agent", default=None)
+            resp_id = st.session_state.get("voice_response_id", 0)
+            component_val = _voice_component(
+                response=pending, response_id=resp_id, key="voice_agent", default=None
+            )
 
             if pending:
                 st.session_state.voice_response = None
@@ -143,6 +146,7 @@ try:
                                 )
                             log_event(f"Voice response: {response_text[:80]!r}...")
                             st.session_state.voice_response = response_text
+                            st.session_state.voice_response_id = msg_ts
                             st.rerun()
 
                     elif component_val.get("type") == "stop":

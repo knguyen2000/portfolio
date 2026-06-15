@@ -37,6 +37,8 @@ def init_session_state():
         st.session_state.voice_response = None
     if "voice_last_ts" not in st.session_state:
         st.session_state.voice_last_ts = 0
+    if "voice_response_id" not in st.session_state:
+        st.session_state.voice_response_id = 0
 
 
 def log_event(msg: str):

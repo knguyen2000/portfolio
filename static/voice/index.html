@@ -114,7 +114,7 @@ var Streamlit = (function() {
   var currentState = 'idle';
   var lastTranscript = '';
   var initialized = false;
-  var lastSpokenResponse = '';
+  var lastSpokenResponseId = -1;
 
   function render() {
     var orbClass = 'voice-orb ' + currentState;
@@ -196,6 +196,7 @@ var Streamlit = (function() {
   function onRender(event) {
     var args = (event.data && event.data.args) || {};
     var response = args.response || '';
+    var responseId = args.response_id || 0;
 
     if (!SpeechRecognition) {
       document.getElementById('app').innerHTML =
@@ -213,10 +214,10 @@ var Streamlit = (function() {
 
     Streamlit.setFrameHeight(420);
 
-    if (response && response !== lastSpokenResponse && currentState !== 'speaking') {
-      lastSpokenResponse = response;
+    if (response && responseId !== lastSpokenResponseId && currentState !== 'speaking') {
+      lastSpokenResponseId = responseId;
       speak(response, function() { startListening(); });
-    } else if (!initialized || currentState === 'idle') {
+    } else if (currentState === 'idle') {
       render();
     }
   }
