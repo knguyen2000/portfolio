@@ -10,7 +10,7 @@ PROJECTS_INTRO_VIDEO_URL = "https://github.com/knguyen2000/portfolio/raw/main/st
 LOCATIONS = {
     # Home
     "Vung Tau": [107.0843, 10.3460],
-    
+
     # Asia
     "Japan": [139.6917, 35.6895], # Tokyo
     "Singapore": [103.8198, 1.3521],
@@ -18,10 +18,10 @@ LOCATIONS = {
     "Thailand": [100.5018, 13.7563], # Bangkok
     "Malaysia": [101.6869, 3.1390], # Kuala Lumpur
     "South Korea": [126.9780, 37.5665], # Seoul
-    
+
     # Oceania
     "New Zealand": [174.7762, -41.2865], # Wellington
-    
+
     # Europe
     "Finland": [24.9384, 60.1699], # Helsinki
     "Estonia": [24.7536, 59.4370], # Tallinn
@@ -32,7 +32,7 @@ LOCATIONS = {
     "Austria": [16.3738, 48.2082], # Vienna
     "Italy": [12.4964, 41.9028], # Rome
     "France": [2.3522, 48.8566], # Paris
-    
+
     # USA
     "Virginia": [-78.4764, 38.0293], # Charlottesville
     "Washington DC": [-77.0369, 38.9072],
@@ -59,7 +59,7 @@ LOCATIONS = {
 TITLES = [
     {"title": "How it all started 🇻🇳"},
     {"title": "My first trip - New Zealand 🇳🇿"},
-    {"title": "Summer in a city I have always dreamed of - Tokyo 🇯🇵"}, 
+    {"title": "Summer in a city I have always dreamed of - Tokyo 🇯🇵"},
     {"title": "Undergrad life in Finland 🇫🇮 (🇭🇺, 🇵🇱, 🇩🇰, 🇩🇪, 🇸🇬)"},
     {"title": "Working in Vietnam and business trip to Denmark 🇻🇳 🇩🇰 (🇹🇭, 🇲🇾, 🇰🇷, 🇸🇪, 🇦🇹, 🇮🇹, 🇫🇷)"},
     {"title": "American Dream 🇺🇸"},
@@ -73,8 +73,8 @@ LOCATION_TO_CHAPTER = {
     "Finland": 3, "Hungary": 3, "Poland": 3, "Singapore": 3,
     "Germany": 3, "Estonia": 3, "Denmark": 4,
     "Vietnam": 4,
-    "Thailand": 4, "Malaysia": 4, "South Korea": 4, "Sweden": 4, 
-    "Austria": 4, "Italy": 4, "France": 4, 
+    "Thailand": 4, "Malaysia": 4, "South Korea": 4, "Sweden": 4,
+    "Austria": 4, "Italy": 4, "France": 4,
     "Virginia": 5, "Washington DC": 5, "Maryland": 5, "New York": 5,
     "New Jersey": 5, "Pennsylvania": 5, "Massachusetts": 5, "Florida": 5, "California": 5, "Illinois": 5, "Colorado": 5,
     "Washington": 5, "Oregon": 5, "Georgia": 5, "Tennessee": 5, "Indiana": 5, "Iowa": 5,
@@ -82,7 +82,7 @@ LOCATION_TO_CHAPTER = {
 }
 
 GALLERY_CAPTIONS = [
-    "LOVE", "SEA", "CALM", "CHARM", "LAGO", "MOOD", "SIMPLE", 
+    "LOVE", "SEA", "CALM", "CHARM", "LAGO", "MOOD", "SIMPLE",
     "LA LA LAND", "DREAM", "HANOK", "CITY GARDEN"
 ]
 

@@ -1,0 +1,46 @@
+[project]
+name = "portfolio"
+version = "1.0.0"
+requires-python = ">=3.11"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+exclude = [
+    "env/",
+    "chroma_db/",
+    "scripts/debug/",
+    "__pycache__/",
+    ".git/",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort (import sorting)
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "SIM", # flake8-simplify
+]
+ignore = [
+    "E501",   # line too long — handled by formatter, and Streamlit HTML strings get long
+    "E741",   # ambiguous variable name (single-letter vars like `f`, `m` are fine in loops)
+    "B905",   # zip without strict= — not needed for this codebase
+    "SIM108", # ternary instead of if/else — readability preference
+]
+
+[tool.ruff.lint.per-file-ignores]
+"pages/*.py" = ["E402"]  # Streamlit pages may have late imports after st.set_page_config
+"app.py" = ["E402"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-v --tb=short"

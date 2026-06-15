@@ -1,6 +1,5 @@
 import streamlit as st
 
-
 # --- Shared Video Modal CSS ---
 _MODAL_CSS = """
 <style>

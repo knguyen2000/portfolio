@@ -1,12 +1,9 @@
-import streamlit as st
 import os
-from config.profile import (
-    PROFILE_IMAGE_PATH,
-    PROFILE_NAME,
-    PROFILE_HEADLINE,
-    PROFILE_SUBTITLE,
-    SOCIAL_LINKS
-)
+
+import streamlit as st
+
+from config.profile import PROFILE_HEADLINE, PROFILE_IMAGE_PATH, PROFILE_NAME, PROFILE_SUBTITLE, SOCIAL_LINKS
+
 
 def render_sidebar():
     """Renders the common sidebar profile and navigation."""
@@ -29,7 +26,7 @@ def render_sidebar():
         # Profile Image & Details
         if os.path.exists(PROFILE_IMAGE_PATH):
             st.image(PROFILE_IMAGE_PATH, width=250)
-        
+
         st.markdown(f"""
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
         <div style="text-align: center; margin-top: -10px;">
@@ -52,20 +49,21 @@ def render_sidebar():
             </div>
         </div>
         """, unsafe_allow_html=True)
-        
+
         st.markdown("<br>", unsafe_allow_html=True)
-        
+
         # Navigation
         st.page_link("app.py", label="Chat", icon="🐼", use_container_width=True)
         st.page_link("pages/about.py", label="About Me", icon="✈️", use_container_width=True)
         st.page_link("pages/projects.py", label="Projects", icon="🛋️", use_container_width=True)
         st.page_link("pages/gallery.py", label="Gallery", icon="🖼️", use_container_width=True)
         st.page_link("pages/guestbook.py", label="Community Guestbook", icon="📝", use_container_width=True)
+        st.page_link("pages/availability.py", label="Availability", icon="📅", use_container_width=True)
         if st.session_state.get("user_role") == "Admin":
             st.page_link("pages/feedback_dashboard.py", label="Review Dashboard", icon="⚙️", use_container_width=True)
-        
+
         st.markdown("---")
-        
+
         if st.button("Reset Conversation", use_container_width=True):
             st.session_state.messages = []
             st.session_state.view_doc = None

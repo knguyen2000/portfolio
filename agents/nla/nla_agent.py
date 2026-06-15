@@ -10,6 +10,7 @@ Returns (response_text, token_stats, nla_analysis_dict).
 FVE ≈ cosine similarity under L2-normalisation to sqrt(d_model); range [-1, 1].
 """
 import requests
+
 from config.app_config import MODAL_NLA_ENDPOINT
 
 

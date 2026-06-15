@@ -24,6 +24,7 @@ The sidebar contains:
   - 🛋️ Projects — a reading corner with project write-ups
   - 🖼️ Gallery — a scroll-based photo gallery of Khuong's travels
   - 📝 Community Guestbook — a collaborative living document
+  - 📅 Availability — shows Khuong's real-time calendar availability and lets you book a meeting directly via Calendly
   - ⚙️ Review Dashboard — admin-only page for reviewing visitor feedback (only visible after logging in as Admin)
 - **Reset Conversation** button — clears the entire chat history
 - **Admin Login** expander at the bottom of the sidebar — allows entering a password to gain Admin role, which unlocks the Review Dashboard
@@ -114,6 +115,14 @@ The sidebar contains:
   - **Unresolved Concerns**: feedback submitted by visitors, grouped by concern category (e.g., feature request, bug report). Each concern shows the original quote, workflow stage, root cause, and tool match. Admin can mark concerns as resolved or generate a backlog candidate.
   - **Backlog Candidates**: AI-generated draft opportunity tickets based on clusters of visitor concerns. Shows title, problem, impact, risk, root causes, suggested MVP, and acceptance criteria.
   - **Metrics**: total concerns captured, number unresolved, and resolution rate percentage.
+
+---
+
+## How to Schedule a Meeting with Khuong
+
+If a user asks any variant of "how can I meet Khuong?", "can I schedule a call?", "how do I book time with you?", "are you available?", "how to connect?", or similar — this is a CLEAR, ANSWERABLE question. Do NOT checkpoint it. Answer directly.
+
+Khuong has a dedicated **📅 Availability** page (in the sidebar) that shows his real-time calendar and lets visitors book a meeting via Calendly. Direct the user there. You can also mention that email (khuongnguyen211000@gmail.com) and LinkedIn are available for async contact.
 
 ---
 

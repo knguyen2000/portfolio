@@ -1,5 +1,5 @@
-import sqlite3
 import os
+import sqlite3
 import uuid
 from datetime import datetime
 
@@ -16,7 +16,7 @@ def get_connection():
 def init_db():
     conn = get_connection()
     cursor = conn.cursor()
-    
+
     # Tables as proposed
     cursor.executescript('''
         CREATE TABLE IF NOT EXISTS documents (
@@ -58,7 +58,7 @@ def init_db():
             author_id TEXT,
             FOREIGN KEY (change_request_id) REFERENCES change_requests(id)
         );
-        
+
         CREATE TABLE IF NOT EXISTS audit_log (
             id TEXT PRIMARY KEY,
             action TEXT,
@@ -84,37 +84,37 @@ def create_change_request(document_id, original_content, proposed_content, user_
     """Creates a new change request with the original and proposed versions."""
     conn = get_connection()
     cursor = conn.cursor()
-    
+
     # 1. Ensure document exists
     cursor.execute("SELECT id FROM documents WHERE id = ?", (document_id,))
     if not cursor.fetchone():
         cursor.execute("INSERT INTO documents (id, title, status) VALUES (?, ?, ?)",
                        (document_id, document_id, "active"))
-    
+
     # 2. Create Base Version
     base_version_id = str(uuid.uuid4())
     cursor.execute("""
         INSERT INTO document_versions (id, document_id, content_markdown, created_by, created_at, is_live)
         VALUES (?, ?, ?, ?, ?, ?)
     """, (base_version_id, document_id, original_content, "system", datetime.now().isoformat(), True))
-    
+
     # 3. Create Proposed Version
     proposed_version_id = str(uuid.uuid4())
     cursor.execute("""
         INSERT INTO document_versions (id, document_id, content_markdown, created_by, created_at, is_live)
         VALUES (?, ?, ?, ?, ?, ?)
     """, (proposed_version_id, document_id, proposed_content, user_id, datetime.now().isoformat(), False))
-    
+
     # 4. Create Change Request
     request_id = str(uuid.uuid4())
     cursor.execute("""
         INSERT INTO change_requests (id, document_id, base_version_id, proposed_version_id, created_by, status)
         VALUES (?, ?, ?, ?, ?, ?)
     """, (request_id, document_id, base_version_id, proposed_version_id, user_id, "in_review"))
-    
+
     conn.commit()
     conn.close()
-    
+
     log_audit("create_request", user_id, request_id)
     return request_id
 
@@ -122,8 +122,8 @@ def get_open_change_requests():
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT cr.id, cr.document_id, cr.created_by, cr.status, 
-               v_base.content_markdown as base_content, 
+        SELECT cr.id, cr.document_id, cr.created_by, cr.status,
+               v_base.content_markdown as base_content,
                v_prop.content_markdown as proposed_content
         FROM change_requests cr
         JOIN document_versions v_base ON cr.base_version_id = v_base.id
@@ -137,14 +137,14 @@ def get_open_change_requests():
 def update_change_request_status(request_id, status, user_id):
     conn = get_connection()
     cursor = conn.cursor()
-    
+
     if status == 'merged':
         cursor.execute("UPDATE change_requests SET status = ?, merged_by = ?, merged_at = ? WHERE id = ?",
                        (status, user_id, datetime.now().isoformat(), request_id))
     else:
         cursor.execute("UPDATE change_requests SET status = ? WHERE id = ?", (status, request_id))
-        
+
     conn.commit()
     conn.close()
-    
+
     log_audit(f"update_request_{status}", user_id, request_id)

@@ -1,5 +1,6 @@
 [server]
 enableStaticServing = true
+fileWatcherType = "poll"
 
 [client]
 showSidebarNavigation = false

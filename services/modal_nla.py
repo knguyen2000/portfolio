@@ -79,11 +79,12 @@ _AR_TEMPLATE = "Summary of the following text: <text>{explanation}</text> <summa
 class _NLAService:
     def __init__(self):
         import os
+
         import torch
-        from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
         import torch.nn as nn
-        from safetensors.torch import load_file
         from huggingface_hub import hf_hub_download
+        from safetensors.torch import load_file
+        from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
         hf_token = os.environ.get("HF_TOKEN")
 
@@ -181,7 +182,9 @@ class _NLAService:
 
     def _step2(self, h) -> str:
         """Inject h into AV model at ㈎ position; generate description."""
-        import re, torch
+        import re
+
+        import torch
 
         ids = self.tok(
             _AV_TEMPLATE, return_tensors="pt", add_special_tokens=True
@@ -299,8 +302,9 @@ def _get_svc() -> "_NLAService":
 def download_models():
     """Run once to cache all model weights: `modal run modal_model.py::download_models`"""
     import os
-    from transformers import AutoModelForCausalLM, AutoTokenizer
+
     from huggingface_hub import hf_hub_download
+    from transformers import AutoModelForCausalLM, AutoTokenizer
 
     hf_token = os.environ.get("HF_TOKEN")
 

@@ -7,7 +7,7 @@ Centralized here to keep app.py clean.
 APP_CSS = """
 <style>
    .verbatim-match {
-        background-color: #d4edda; 
+        background-color: #d4edda;
         border-bottom: 2px solid #28a745;
         color: #155724;
         cursor: pointer;
@@ -22,7 +22,7 @@ APP_CSS = """
         text-align: center;
         margin-bottom: 2rem;
     }
-    
+
     div[data-testid="stHorizontalBlock"] > div:nth-child(2) {
         position: sticky;
         top: 4rem;

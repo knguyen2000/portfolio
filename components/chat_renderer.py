@@ -2,12 +2,11 @@
 Chat Renderer — Renders the conversation history, checkpoint cards, and
 Workflow Intelligence consent UI.
 """
+
 import streamlit as st
-import urllib.parse
-from st_click_detector import click_detector
+
 from config.app_config import HIGH_TOKEN_WARNING_THRESHOLD
 from state import log_event
-
 
 # ---------------------------------------------------------------------------
 # Checkpoint card renderer
@@ -30,7 +29,7 @@ def _render_checkpoint_card(checkpoint: dict, msg_index: int):
     pending = st.session_state.get("pending_checkpoint")
     is_pending = (pending and pending.get("checkpoint_id") == checkpoint.get("checkpoint_id"))
     is_responded = (is_pending and pending.get("status") == "user_responded")
-    
+
     # Only show buttons/form if the checkpoint is active and hasn't been answered yet
     is_active = is_pending and not is_responded
 
@@ -85,7 +84,7 @@ def _render_checkpoint_card(checkpoint: dict, msg_index: int):
 
             if continue_btn:
                 checkpoint_data = st.session_state.pending_checkpoint
-                
+
                 # Determine user's intent based on what they filled out
                 if edit_text.strip():
                     checkpoint_data["user_decision"] = "edited"
@@ -96,7 +95,7 @@ def _render_checkpoint_card(checkpoint: dict, msg_index: int):
                 else:
                     checkpoint_data["user_decision"] = "approved"
                     checkpoint_data["user_edit"] = ""
-                    
+
                 checkpoint_data["status"] = "user_responded"
                 st.session_state.pending_checkpoint = checkpoint_data
                 st.rerun()
@@ -196,7 +195,7 @@ def render_chat_history():
 
                 # Render HTML or plain text
                 html_to_render = msg.get("html_content")
-                
+
                 if not html_to_render:
                     st.write(msg["content"])
                     continue
@@ -204,24 +203,24 @@ def render_chat_history():
                 # Click-to-verify rendering
                 content_id = len(msg["content"])
                 base_key = f"msg_{i}_{content_id}"
-                
+
                 # Create a dynamic key for the component to force unmount/remount on column resize
                 instance_key = f"{base_key}_{st.session_state.get('rerun_id', 0)}"
-                
+
                 # Look up the last known click state
                 prev_val = st.session_state.clicked_states.get(base_key, "")
-                
+
                 # st_click_detector in React 18 Strict Mode mounts twice and appends to innerHTML twice, causing duplicate text.
                 # By wrapping our HTML in a unique class and hiding subsequent siblings of that class,
                 # => hide the duplicate iframe
                 unique_class = f"click-wrapper-{i}-{content_id}"
                 css_hack = f"<style>.{unique_class} ~ .{unique_class} {{ display: none !important; }}</style>"
-                
+
                 safe_html = f"{css_hack}<div class='{unique_class}' style='height: 100%; overflow-y: auto; padding-bottom: 10px;'>{html_to_render}</div>"
-                
+
                 from st_click_detector import click_detector
                 current_val = click_detector(safe_html, key=instance_key)
-                
+
                 if current_val and current_val != prev_val:
                     log_event(f"New click detected on {base_key}: {current_val[:30]}...")
                     st.session_state.clicked_states[base_key] = current_val
@@ -247,10 +246,10 @@ def render_chat_history():
         with st.chat_message("assistant"):
             st.warning("💡 It sounds like this may be a workflow pain point or feature request.")
             st.write("Would you like to share this with Khuong as feedback?")
-            
+
             with st.form(key="concern_form"):
                 quote = st.text_area("Feedback details", value=concern.get("original_quote", ""), height=100)
-                
+
                 col1, col2, col3 = st.columns([1, 1, 1])
                 with col1:
                     submit = st.form_submit_button("✅ Submit", type="primary", use_container_width=True)
@@ -258,14 +257,14 @@ def render_chat_history():
                     anon = st.form_submit_button("👻 Submit Anonymously", use_container_width=True)
                 with col3:
                     cancel = st.form_submit_button("❌ Do not submit", use_container_width=True)
-                    
+
                 if submit or anon:
                     from utils.workflow_db import insert_concern
                     concern["original_quote"] = quote
                     if anon:
                         concern["affected_role"] = "Anonymous Visitor"
                     insert_concern(concern, quote)
-                    
+
                     # Update the last assistant message to acknowledge submission
                     for m in reversed(st.session_state.messages):
                         if m["role"] == "assistant":
@@ -274,13 +273,13 @@ def render_chat_history():
                             if m.get("html_content"):
                                 m["html_content"] += msg_append.replace("\n", "<br>")
                             break
-                    
+
                     st.session_state.pending_concern = None
                     st.rerun()
                 elif cancel:
                     for m in reversed(st.session_state.messages):
                         if m["role"] == "assistant":
-                            msg_append = f"\n\nNo problem! I won't submit a request this time. Let me know if there's anything else I can help you find!"
+                            msg_append = "\n\nNo problem! I won't submit a request this time. Let me know if there's anything else I can help you find!"
                             m["content"] += msg_append
                             if m.get("html_content"):
                                 m["html_content"] += msg_append.replace("\n", "<br>")
@@ -293,7 +292,7 @@ def render_document_viewer(docs):
     if st.session_state.view_doc:
         doc_is_guestbook = st.session_state.view_doc and "guestbook" in st.session_state.view_doc.lower()
         show_propose_change = st.session_state.get("user_role") in ["Editor", "Admin"] or doc_is_guestbook
-        
+
         if show_propose_change:
             col1, col2 = st.columns([3, 1])
             with col1:

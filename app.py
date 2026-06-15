@@ -2,25 +2,32 @@
 Main entry point for the portfolio Streamlit app.
 Orchestrates UI layout, agent mode selection, chat rendering, and document viewing.
 """
-import streamlit as st
 import os
+
+import streamlit as st
+
+from components.agent_dispatch import check_and_set_checkpoint, generate_answer, resume_from_checkpoint
+from components.chat_renderer import render_chat_history, render_document_viewer
+from components.editor_panel import render_editor_panel
 
 # --- Internal Imports ---
 from config.app_config import (
-    PAGE_TITLE, PAGE_ICON, PAGE_LAYOUT,
-    MODE_FILE_BASED, MODE_VECTOR_RAG, MODE_RLM, MODE_NLA,
-    AVAILABLE_MODES, DEFAULT_MODE_INDEX,
+    AVAILABLE_MODES,
+    DEFAULT_MODE_INDEX,
+    MODE_FILE_BASED,
+    MODE_NLA,
+    MODE_RLM,
+    MODE_VECTOR_RAG,
+    PAGE_ICON,
+    PAGE_LAYOUT,
+    PAGE_TITLE,
 )
-from styles import APP_CSS, WARNING_STYLE
-from state import init_session_state, log_event
 from engines.trace_engine import load_corpus
-from utils.sidebar import render_sidebar
-
-from components.chat_renderer import render_chat_history, render_document_viewer
-from components.agent_dispatch import generate_answer, check_and_set_checkpoint, resume_from_checkpoint
+from state import init_session_state, log_event
+from styles import APP_CSS, WARNING_STYLE
 from utils.guestbook_db import init_db
+from utils.sidebar import render_sidebar
 from utils.workflow_db import init_db as init_workflow_db
-from components.editor_panel import render_editor_panel
 
 # --- Page Config ---
 st.set_page_config(layout=PAGE_LAYOUT, page_title=PAGE_TITLE, page_icon=PAGE_ICON)
@@ -115,7 +122,7 @@ try:
                 if st.button(ckpt_label, type=ckpt_type, use_container_width=True, key="ckpt_toggle_btn"):
                     st.session_state.checkpoint_enabled = not ckpt_on
                     st.rerun()
-                
+
         # 2. Verify Sources
         if show_verify:
             col_idx = 1 if show_checkpoint else 0
@@ -151,7 +158,7 @@ try:
         if pending_ckpt and pending_ckpt.get("status") == "user_responded":
             # Remove the checkpoint message so it vanishes instantly
             st.session_state.messages = [m for m in st.session_state.messages if not m.get("checkpoint")]
-            
+
             # Update the user's original message to reflect their clarification
             user_decision = pending_ckpt.get("user_decision", "approved")
             user_edit = pending_ckpt.get("user_edit", "")

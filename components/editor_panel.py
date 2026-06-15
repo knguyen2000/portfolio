@@ -1,5 +1,7 @@
 import streamlit as st
+
 from utils.guestbook_db import create_change_request
+
 
 def render_editor_panel(docs):
     doc_id = st.session_state.editing_doc
@@ -13,23 +15,23 @@ def render_editor_panel(docs):
     import os
     file_path = os.path.join("data", doc_id)
     try:
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             original_content = f.read()
     except Exception as e:
         st.error(f"Failed to load raw document: {e}")
         return
-    
+
     st.subheader(f"Suggesting Edits to: {doc_id}")
-    
+
     # Simple editor
     proposed_content = st.text_area("Edit Document Content", value=original_content, height=600)
-    
+
     col1, col2 = st.columns([1, 1])
     with col1:
         if st.button("Cancel", use_container_width=True):
             st.session_state.editing_doc = None
             st.rerun()
-            
+
     with col2:
         if st.button("Submit Suggestion", type="primary", use_container_width=True):
             if proposed_content == original_content:

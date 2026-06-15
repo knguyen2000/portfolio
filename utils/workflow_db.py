@@ -4,8 +4,8 @@ Workflow Intelligence database layer.
 Manages SQLite persistence for visitor feedback concerns, backlog candidates,
 and the admin activity log. Mirrors the pattern used in guestbook_db.py.
 """
-import sqlite3
 import os
+import sqlite3
 import uuid
 from datetime import datetime
 
@@ -24,7 +24,7 @@ def init_db():
     """Create all tables if they do not already exist."""
     conn = get_connection()
     cursor = conn.cursor()
-    
+
     cursor.executescript('''
         CREATE TABLE IF NOT EXISTS feedback_concerns (
             id TEXT PRIMARY KEY,
@@ -74,7 +74,7 @@ def insert_concern(concern_data: dict, original_quote: str) -> str:
     concern_id = str(uuid.uuid4())
     cursor.execute("""
         INSERT INTO feedback_concerns (
-            id, original_quote, concern_category, workflow_stage, 
+            id, original_quote, concern_category, workflow_stage,
             affected_role, likely_root_cause, existing_tool_match, status, created_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
@@ -169,9 +169,9 @@ def insert_backlog_candidate(candidate_data: dict) -> str:
     candidate_id = str(uuid.uuid4())
     cursor.execute("""
         INSERT INTO backlog_candidates (
-            id, title, problem, original_evidence, workflow_stage, 
-            user_group, existing_tool_check, hypothesized_root_causes, 
-            impact, risk, suggested_validation, potential_mvp, 
+            id, title, problem, original_evidence, workflow_stage,
+            user_group, existing_tool_check, hypothesized_root_causes,
+            impact, risk, suggested_validation, potential_mvp,
             acceptance_criteria, status, created_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (

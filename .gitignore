@@ -19,3 +19,25 @@ test_results.txt
 models_list.txt
 list_models.py
 settings.*
+
+# Planning artifacts
+SPEC.md
+TODO.md
+TASKS.md
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Build
+*.egg-info/
+dist/
+build/
+
+# Misc
+*.bak
+*.tmp
+*.log
+.env

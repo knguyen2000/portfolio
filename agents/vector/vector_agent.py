@@ -1,11 +1,14 @@
 from google import genai
-from .vector_store import VectorEngine
+
 from config.app_config import (
-    EMBEDDING_MODEL_ID, 
-    VECTOR_CONFIDENCE_HIGH, 
-    VECTOR_CONFIDENCE_LOW, 
-    VECTOR_CAUTION_THRESHOLD
+    EMBEDDING_MODEL_ID,
+    VECTOR_CAUTION_THRESHOLD,
+    VECTOR_CONFIDENCE_HIGH,
+    VECTOR_CONFIDENCE_LOW,
 )
+
+from .vector_store import VectorEngine
+
 
 class VectorRAGAgent:
     def __init__(self, client, model_id, api_key, docs=None, log_callback=None):
@@ -28,7 +31,7 @@ class VectorRAGAgent:
         Returns: (response_text, token_stats)
         """
         ve = VectorEngine(
-            api_key=self.api_key, 
+            api_key=self.api_key,
             model_id=EMBEDDING_MODEL_ID,
             log_callback=self.log_callback
         )
@@ -43,14 +46,14 @@ class VectorRAGAgent:
 
         self.log(f"🔍 Searching knowledge base for: '{user_query}'")
         search_results = ve.search(user_query, k=5)
-        
+
         # Calculate Match Quality (Cosine distance: 0 is 100%, 1.0+ is 0%)
         matches = []
         for chunk, meta, dist in zip(search_results["chunks"], search_results["metadatas"], search_results["distances"]):
             quality = max(0, int((1.0 - dist) * 100))
             matches.append({
-                "chunk": chunk, 
-                "source": meta.get("source", "Unknown"), 
+                "chunk": chunk,
+                "source": meta.get("source", "Unknown"),
                 "quality": quality
             })
 
@@ -85,7 +88,7 @@ class VectorRAGAgent:
         context_parts = []
         for m in matches:
             context_parts.append(f"[Source: {m['source']}, Match Quality: {m['quality']}%]\n{m['chunk']}")
-        
+
         context_str = "\n---\n".join(context_parts)
 
         # UI Caution for weak matches
@@ -108,7 +111,7 @@ class VectorRAGAgent:
             system_prompt += "\n\nCRITICAL: Answer naturally and conversationally, but you MUST embed exact, verbatim phrases from the context into your sentences. Do not just dump raw text, but ensure your core facts are exact substring matches so the Trace Engine can highlight them."
 
         self.log("Generating answer...")
-        
+
         chat = self.client.chats.create(
             model=self.model_id,
             config=genai.types.GenerateContentConfig(

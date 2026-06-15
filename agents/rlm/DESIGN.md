@@ -21,11 +21,6 @@ The production-ready recursive model (V1).
 - Takes in the user's prompt and loops through a completion logic until it is satisfied it has found the answer.
 - Dispatches logs back to the main UI by executing a `log_callback`.
 
-#### `rlm/insight_rlm_agent.py` `[DISABLED]`
-The experimental (V2) insight-aware model.
-- Designed to build complex "Chain of Thought" data graphs instead of standard recursion.
-- *TODO:* Currently disabled and disconnected from `agent_dispatch.py` due to instability and high token costs. Kept here for future testing and iteration.
-
 #### `rlm/prompts/`
 A subdirectory storing the massive system prompt string templates that dictate the exact behavior, tone, and JSON schemas the RLMs must follow.
 

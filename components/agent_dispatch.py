@@ -9,14 +9,201 @@ This module is the central traffic controller. It:
 5. Handles all Gemini API errors with user-friendly messages
 """
 import streamlit as st
-from config.app_config import MODEL_ID, MODE_RLM, MODE_VECTOR_RAG, MODE_FILE_BASED, MODE_NLA
-from state import log_event, append_response
-from engines.trace_engine import find_maximal_matches
+
+from agents.file_based.file_based_agent import FileBasedAgent
 from agents.rlm.rlm_agent import RLMAgent
 from agents.vector.vector_agent import VectorRAGAgent
-from agents.file_based.file_based_agent import FileBasedAgent
+from config.app_config import MODE_NLA, MODE_RLM, MODE_VECTOR_RAG, MODEL_ID
+from engines.checkpoint_engine import build_resume_prompt, should_checkpoint
+from engines.trace_engine import find_maximal_matches
 from engines.workflow_intelligence import detect_concern
-from engines.checkpoint_engine import should_checkpoint, build_resume_prompt
+from services.calendly import (
+    CalendlyClient,
+    create_booking,
+    detect_scheduling_intent,
+    extract_booking_info,
+    fetch_available_slots,
+    fetch_event_types,
+    format_slot_time,
+    is_booking_supported,
+    pick_best_slot,
+    validate_email,
+)
+from state import append_response, log_event
+
+
+def _handle_booking_flow(client, agent_mode: str, prompt_text: str):
+    """
+    Multi-turn in-chat booking via Calendly (Story 5).
+
+    Called before normal agent dispatch. Returns (response_text, token_stats) when
+    the booking flow is active or scheduling intent was detected; returns None to
+    fall through to the normal agent pipeline.
+    """
+    booking = st.session_state.get("booking_flow")
+    is_scheduling = detect_scheduling_intent(prompt_text)
+
+    # Not in an active flow and no scheduling intent → let normal agent handle
+    if not booking and not is_scheduling:
+        return None
+
+    # NLA exclusion
+    if not is_booking_supported(agent_mode):
+        return (
+            "NLA mode is for exploring model internals only and doesn't support booking. "
+            "Please switch to another mode (e.g., Standard RAG) to schedule a meeting with Khuong.",
+            {"total": 0},
+        )
+
+    # Require Calendly token
+    try:
+        token = st.secrets.get("CALENDLY_TOKEN")
+    except Exception:
+        token = None
+
+    if not token:
+        st.session_state.booking_flow = None
+        return (
+            "Khuong's calendar isn't connected yet. "
+            "You can reach him via [email](mailto:khuongnguyen211000@gmail.com) "
+            "or [LinkedIn](https://www.linkedin.com/in/khuongng/) to arrange a meeting.",
+            {"total": 0},
+        )
+
+    total_tokens = 0
+    log_event(f"[BOOKING DEBUG] booking={booking}, prompt={prompt_text!r}")
+
+    if not booking:
+        # First turn — try LLM extraction in case user provided everything up front
+        # (e.g. "book a call, I'm Jane Doe, jane@example.com, Thursday 2pm")
+        extracted, tokens = extract_booking_info(client, MODEL_ID, prompt_text)
+        total_tokens += tokens
+        st.session_state.booking_flow = {
+            "name": extracted["name"],
+            "email": extracted["email"],
+            "preferred_time": extracted["preferred_time"],
+            "awaiting": None,  # tracks which field we explicitly asked for last
+        }
+    else:
+        # Subsequent turns — if we asked for a specific field, the message IS that field.
+        # Store it directly without another LLM round-trip.
+        awaiting = booking.get("awaiting")
+        log_event(f"[BOOKING DEBUG] else branch — awaiting={awaiting!r}")
+        if awaiting:
+            booking[awaiting] = prompt_text.strip()
+            booking["awaiting"] = None
+        st.session_state.booking_flow = booking
+
+    booking = st.session_state.booking_flow
+    log_event(f"[BOOKING DEBUG] after update — booking={booking}")
+
+    # --- Collect missing pieces one ask at a time, tracking what we asked for ---
+    if not booking.get("name"):
+        booking["awaiting"] = "name"
+        st.session_state.booking_flow = booking
+        return ("I'd love to help book a meeting with Khuong! What's your full name?", {"total": total_tokens})
+
+    if not booking.get("email"):
+        booking["awaiting"] = "email"
+        st.session_state.booking_flow = booking
+        return (f"Thanks, {booking['name']}! What's the best email address for the calendar invite?", {"total": total_tokens})
+
+    if not validate_email(booking["email"]):
+        booking["email"] = None
+        booking["awaiting"] = "email"
+        st.session_state.booking_flow = booking
+        return ("That email doesn't look quite right — could you double-check it?", {"total": total_tokens})
+
+    if not booking.get("preferred_time"):
+        booking["awaiting"] = "preferred_time"
+        st.session_state.booking_flow = booking
+        return (
+            f"Got it! When works best for you, {booking['name']}? "
+            "Feel free to be specific (e.g., 'Thursday at 2 pm') or general (e.g., 'any morning next week').",
+            {"total": total_tokens},
+        )
+
+    # --- All info collected — hit the Calendly API ---
+    calendly = CalendlyClient(token)
+
+    try:
+        event_types = fetch_event_types(calendly)
+    except Exception as e:
+        log_event(f"Calendly fetch_event_types error: {e}")
+        st.session_state.booking_flow = None
+        return ("I couldn't reach Khuong's calendar right now. Please try again in a moment.", {"total": total_tokens})
+
+    if not event_types:
+        st.session_state.booking_flow = None
+        return ("There are no active meeting types on Khuong's calendar at the moment.", {"total": total_tokens})
+
+    # Pick the first event type (30-min coffee chat, etc.)
+    event_type = event_types[0]
+
+    try:
+        user_info = calendly.get_current_user()
+        timezone = user_info.get("timezone", "America/Chicago")
+        slots_by_date = fetch_available_slots(calendly, event_type["uri"])
+    except Exception as e:
+        log_event(f"Calendly fetch_available_slots error: {e}")
+        st.session_state.booking_flow = None
+        return ("I had trouble fetching available slots. Please try again later.", {"total": total_tokens})
+
+    if not slots_by_date:
+        st.session_state.booking_flow = None
+        return (
+            f"There are no open slots this week for a **{event_type['name']}**. "
+            f"Try emailing Khuong at khuongnguyen211000@gmail.com to find a time.",
+            {"total": total_tokens},
+        )
+
+    # Match preferred time to an actual slot
+    best_slot, tokens = pick_best_slot(client, MODEL_ID, booking["preferred_time"], slots_by_date, timezone)
+    total_tokens += tokens
+
+    if not best_slot:
+        # Show the next few available options and stay in the flow
+        options = []
+        for date_key in sorted(slots_by_date)[:3]:
+            for slot in slots_by_date[date_key][:2]:
+                options.append(f"- **{date_key}** at {format_slot_time(slot['start_time'], timezone)}")
+        original_pref = booking["preferred_time"]
+        booking["preferred_time"] = None
+        booking["awaiting"] = "preferred_time"
+        st.session_state.booking_flow = booking
+        return (
+            f"I couldn't find a slot close to *{original_pref}*. "
+            f"Here are some open times:\n\n" + "\n".join(options) + "\n\nWhich works for you?",
+            {"total": total_tokens},
+        )
+
+    # --- Book it ---
+    result = create_booking(
+        calendly,
+        event_type_uri=event_type["uri"],
+        name=booking["name"],
+        email=booking["email"],
+    )
+
+    st.session_state.booking_flow = None  # always clear after attempt
+
+    if not result:
+        return (
+            f"The booking didn't go through — the slot may have just been taken. "
+            f"You can book directly at [{event_type['name']}]({event_type['scheduling_url']}).",
+            {"total": total_tokens},
+        )
+
+    slot_time = format_slot_time(best_slot["start_time"], timezone=timezone)
+    return (
+        f"✅ **Meeting booked!**\n\n"
+        f"- **Name**: {result['name']}\n"
+        f"- **Email**: {result['email']}\n"
+        f"- **Meeting**: {event_type['name']} ({event_type['duration']} min)\n"
+        f"- **When**: {best_slot['date']} at {slot_time}\n\n"
+        f"A confirmation has been sent to **{result['email']}**. Khuong is looking forward to it!",
+        {"total": total_tokens},
+    )
 
 
 def _make_logger(status, steps_log):
@@ -34,12 +221,12 @@ def _deduplicate_response(text):
     """
     if not text: return ""
     text = text.strip()
-    
+
     import re
     # Remove all whitespace to check for perfect duplication
     clean_text = re.sub(r'\s+', '', text)
     if not clean_text: return text
-    
+
     if len(clean_text) % 2 == 0:
         half_len = len(clean_text) // 2
         if clean_text[:half_len] == clean_text[half_len:]:
@@ -50,14 +237,14 @@ def _deduplicate_response(text):
                     char_count += 1
                 if char_count == half_len:
                     return text[:i+1].strip()
-    
+
     # Fallback to paragraph logic for weird formatting cases
     paragraphs = [p.strip() for p in text.split('\n') if p.strip()]
     if len(paragraphs) > 1 and len(paragraphs) % 2 == 0:
         half = len(paragraphs) // 2
         if paragraphs[:half] == paragraphs[half:]:
             return "\n\n".join(paragraphs[:half])
-            
+
     return text
 
 
@@ -105,7 +292,7 @@ def _run_post_generation(client, prompt_text, response_text, docs, steps_log, to
 
     # Global deduplication guard
     response_text = _deduplicate_response(response_text)
-    
+
     # --- Centralized Trace Engine Verification ---
     traced_html = None
     sources = []
@@ -130,7 +317,7 @@ def _run_post_generation(client, prompt_text, response_text, docs, steps_log, to
             # Auto-submit to DB
             insert_concern(concern_data, prompt_text)
             st.session_state.pending_concern = None
-            
+
             # Append success message directly to the agent's response
             msg_append = f"\n\n*✅ Thank you for the feedback! I've securely recorded this as a **{force_concern_category}** for Khuong to review.*"
             response_text += msg_append
@@ -141,7 +328,7 @@ def _run_post_generation(client, prompt_text, response_text, docs, steps_log, to
             log_event("Workflow Intelligence: Analyzing message...")
             concern_data, concern_tokens = detect_concern(client, prompt_text)
             st.session_state.turn_tokens += concern_tokens
-            
+
             log_event(f"Workflow Intelligence result: is_concern={concern_data.get('is_concern')}, category={concern_data.get('category')}")
             if concern_data and concern_data.get("is_concern"):
                 concern_data["original_quote"] = prompt_text
@@ -155,7 +342,7 @@ def _run_post_generation(client, prompt_text, response_text, docs, steps_log, to
     # --- Clean Final Rendering ---
     if status: status.update(label="✅ Complete!", state="complete", expanded=False)
     log_event("Appended AI msg -> Rerunning")
-    
+
     # Use the globally accumulated tokens for the final display
     total_turn_tokens = st.session_state.get("turn_tokens", token_stats.get("total", 0))
     append_response(response_text, html_content=traced_html, debug_steps=steps_log, token_usage={"total": total_turn_tokens}, sources=sources, nla_analysis=nla_analysis)
@@ -170,11 +357,16 @@ def check_and_set_checkpoint(client, prompt_text):
     if not st.session_state.checkpoint_enabled:
         return False
 
+    # Active booking flow or scheduling intent: bypass checkpoint, booking handler owns these turns.
+    if st.session_state.get("booking_flow") or detect_scheduling_intent(prompt_text):
+        log_event("Checkpoint Engine: Booking flow active or scheduling intent detected — bypassing checkpoint.")
+        return False
+
     log_event("Checkpoint Engine: Classifying message...")
-    
+
     status_label = "🧠 Thinking..." if st.session_state.get("checkpoint_enabled", True) else "⚡ Analyzing request..."
     status_container = st.empty()
-    with status_container.status(status_label, expanded=True) as status:
+    with status_container.status(status_label, expanded=True):
         thought_placeholder = st.empty()
         thought_placeholder.markdown("Checking if the question needs clarification...")
         checkpoint = should_checkpoint(
@@ -230,17 +422,17 @@ def resume_from_checkpoint(client, agent_mode, docs, api_key):
 
     try:
         steps_log = [f"Resumed from checkpoint ({checkpoint['checkpoint_type']})"]
-        
+
         force_concern = None
         if "feature request" in user_edit.lower() or "backlog" in user_edit.lower():
             force_concern = "feature request"
-            
+
         if force_concern:
             # FAST PATH: Checkpoint Engine already confirmed it's missing. Bypass Main Agent!
             log_event("Checkpoint Engine confirmed missing feature. Bypassing Main Agent & Vector Search.")
             response_text = "Currently, this feature is not available."
             token_stats = {"total": 0}
-            
+
             _run_post_generation(
                 client, checkpoint["original_message"], response_text,
                 docs, steps_log, token_stats, status=None, force_concern_category=force_concern
@@ -277,6 +469,14 @@ def generate_answer(client, agent_mode, prompt_text, docs, api_key):
     """Dispatches the prompt to the selected agent model and manages the process UI."""
     try:
         steps_log = []
+
+        # Intercept scheduling intent before normal agent — manages multi-turn booking flow
+        booking_result = _handle_booking_flow(client, agent_mode, prompt_text)
+        if booking_result is not None:
+            response_text, token_stats = booking_result
+            st.session_state.turn_tokens += token_stats.get("total", 0)
+            _run_post_generation(client, prompt_text, response_text, docs, steps_log, token_stats)
+            return
 
         # Unified status bar across all generation phases
         # In NLA mode, collapse the status bar since the NLA analysis is the focus

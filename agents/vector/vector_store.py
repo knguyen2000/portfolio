@@ -1,13 +1,13 @@
-import os
+import hashlib
 import re
 import time
-import hashlib
-from typing import Dict, List, Optional, Callable
+from collections.abc import Callable
+
 import chromadb
 from google import genai
 
 
-def _corpus_fingerprint(docs_dict: Dict[str, str], model_id: str) -> str:
+def _corpus_fingerprint(docs_dict: dict[str, str], model_id: str) -> str:
     """
     Compute a stable fingerprint for the given corpus and model.
 
@@ -38,7 +38,7 @@ class VectorEngine:
             metadata={"hnsw:space": "cosine"}  # Cosine similarity
         )
 
-    def is_stale(self, docs_dict: Dict[str, str]) -> bool:
+    def is_stale(self, docs_dict: dict[str, str]) -> bool:
         """
         Return True if the persisted index does not match the current corpus.
 
@@ -53,7 +53,7 @@ class VectorEngine:
         stored = meta.get("corpus_fingerprint", "")
         return stored != _corpus_fingerprint(docs_dict, self.model_id)
 
-    def get_embedding(self, text: str, max_retries: int = 5) -> List[float]:
+    def get_embedding(self, text: str, max_retries: int = 5) -> list[float]:
         """
         Embed `text` with automatic retry on 429 RESOURCE_EXHAUSTED.
         """
@@ -86,7 +86,7 @@ class VectorEngine:
         self.last_error = f"{self.model_id}: max retries exceeded"
         return []
 
-    def chunk_text(self, text: str, chunk_size: int = 1000, overlap: int = 200) -> List[str]:
+    def chunk_text(self, text: str, chunk_size: int = 1000, overlap: int = 200) -> list[str]:
         """Sliding window chunking"""
         chunks = []
         if not text:
@@ -113,7 +113,7 @@ class VectorEngine:
 
         return chunks
 
-    def build_index(self, docs_dict: Dict[str, str], status_callback: Optional[Callable] = None) -> int:
+    def build_index(self, docs_dict: dict[str, str], status_callback: Callable | None = None) -> int:
         """
         Incrementally builds the Vector Index. Only re-embeds files that have changed.
         docs_dict: {filename: content_string}
@@ -180,7 +180,7 @@ class VectorEngine:
             content = docs_dict[filename]
             if status_callback: status_callback(f"Embedding {filename}...")
             chunks = self.chunk_text(content)
-            
+
             file_failed = False
             for i, chunk in enumerate(chunks):
                 chunk_id = hashlib.md5(f"{filename}_{i}".encode()).hexdigest()
@@ -195,7 +195,7 @@ class VectorEngine:
                     if self.last_error and status_callback:
                         status_callback(f"❌ Error embedding chunk: {self.last_error}")
                         self.last_error = None
-            
+
             if file_failed:
                 failed_files.add(filename)
 
@@ -222,7 +222,7 @@ class VectorEngine:
                 stored_hashes[filename] = current_hashes[filename]
 
         fingerprint = _corpus_fingerprint(docs_dict, self.model_id)
-        
+
         self.collection.modify(metadata={
             "corpus_fingerprint": fingerprint,
             "file_hashes": json.dumps(stored_hashes),
@@ -232,7 +232,7 @@ class VectorEngine:
         if failed_files and status_callback:
             status_callback(f"⚠️ Partial index: {len(failed_files)} files failed to embed fully.")
         elif status_callback:
-            status_callback(f"✅ Incremental indexing complete.")
+            status_callback("✅ Incremental indexing complete.")
 
         return len(documents)
 

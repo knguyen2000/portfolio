@@ -13,10 +13,9 @@ stderr, execution_time) so the agent loop can truncate long outputs and
 surface stderr cleanly.
 """
 
-import io
 import contextlib
+import io
 import time
-
 
 # ---------------------------------------------------------------------------
 # Safe builtins — a subset of Python's __builtins__ that blocks obviously

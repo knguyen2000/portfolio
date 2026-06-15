@@ -1,7 +1,8 @@
-import os
-import re
 import json
+import re
+
 from google import genai
+
 
 class FileBasedAgent:
     def __init__(self, client, model_id, docs=None, log_callback=None):
@@ -24,7 +25,7 @@ class FileBasedAgent:
         """
         # Use all docs passed in directly (no summaries needed)
         available_docs = self.docs
-        
+
         if not available_docs:
             self.log("⚠️ No documents found.")
 
@@ -60,7 +61,7 @@ class FileBasedAgent:
 
             router_chat = self.client.chats.create(model=self.model_id)
             router_response = router_chat.send_message(router_prompt)
-            
+
             if hasattr(router_response, "usage_metadata") and router_response.usage_metadata:
                 self.token_usage['total'] += router_response.usage_metadata.total_token_count or 0
 

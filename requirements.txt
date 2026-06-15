@@ -1,12 +1,12 @@
 streamlit
 google-genai
 st-click-detector
-toml
 PyPDF2
 python-docx
-watchdog
 chromadb
 Pillow
 protobuf<=3.20.3
 requests
 modal
+ruff
+pytest
