@@ -15,7 +15,6 @@ st.set_page_config(layout="wide", page_title="Projects", page_icon="🛋️")
 render_sidebar()
 
 
-
 # --- HELPER FUNCTIONS ---
 def load_projects(data_dir=os.path.join("data", "projects")):
     projects = []
@@ -29,7 +28,7 @@ def load_projects(data_dir=os.path.join("data", "projects")):
                 content = file.read()
 
             # Naive parsing
-            lines = content.split('\n')
+            lines = content.split("\n")
             title = f"Project: {f}"
             abstract = "No abstract available."
             tags = []
@@ -46,7 +45,7 @@ def load_projects(data_dir=os.path.join("data", "projects")):
                 if stripped.startswith("**Tags:**"):
                     tag_str = stripped.replace("**Tags:**", "").strip()
                     if tag_str:
-                         tags = [t.strip() for t in tag_str.split(",")]
+                        tags = [t.strip() for t in tag_str.split(",")]
 
             # Find Abstract (Between ## Abstract and the next ##)
             try:
@@ -61,15 +60,11 @@ def load_projects(data_dir=os.path.join("data", "projects")):
             except Exception:
                 pass
 
-            projects.append({
-                "filename": f,
-                "title": title,
-                "abstract": abstract,
-                "tags": tags,
-                "path": path,
-                "content": content
-            })
+            projects.append(
+                {"filename": f, "title": title, "abstract": abstract, "tags": tags, "path": path, "content": content}
+            )
     return projects
+
 
 # --- MAIN UI ---
 
@@ -86,7 +81,7 @@ if current_project:
 
         def inject_images_and_get_toc(markdown_text, base_path=os.path.dirname(project_path)):
             # Image Injection
-            img_pattern = r'!\[(.*?)\]\((.*?)\)'
+            img_pattern = r"!\[(.*?)\]\((.*?)\)"
 
             def replace_img(match):
                 alt_text = match.group(1)
@@ -114,22 +109,22 @@ if current_project:
             existing_slugs = set()
             in_code_block = False
 
-            for line in processed_content.split('\n'):
+            for line in processed_content.split("\n"):
                 stripped = line.strip()
 
-                if stripped.startswith('```'):
+                if stripped.startswith("```"):
                     in_code_block = not in_code_block
 
-                if not in_code_block and stripped.startswith('#'):
+                if not in_code_block and stripped.startswith("#"):
                     # Determine level
-                    level = len(line.split(' ')[0])
+                    level = len(line.split(" ")[0])
                     # Clean title
-                    title_text = stripped.lstrip('#').strip()
+                    title_text = stripped.lstrip("#").strip()
 
                     if title_text and level <= 3:
                         # Generate slug
-                        raw_slug = title_text.lower().replace(' ', '-').replace('.', '')
-                        cleaned_slug = re.sub(r'[^a-z0-9\-]', '', raw_slug)
+                        raw_slug = title_text.lower().replace(" ", "-").replace(".", "")
+                        cleaned_slug = re.sub(r"[^a-z0-9\-]", "", raw_slug)
 
                         # Handle duplicates
                         slug = cleaned_slug
@@ -142,36 +137,40 @@ if current_project:
                         toc_entries.append((level, title_text, slug))
 
                         anchor_tag = f'<span id="{slug}"></span>'
-                        final_lines.append(f'{anchor_tag}\n\n{line}')
+                        final_lines.append(f"{anchor_tag}\n\n{line}")
                     else:
                         final_lines.append(line)
                 else:
                     final_lines.append(line)
 
-            return '\n'.join(final_lines), toc_entries
+            return "\n".join(final_lines), toc_entries
 
         content, toc_headers = inject_images_and_get_toc(content)
 
         # Reduce top padding of the page
-        st.markdown("""
+        st.markdown(
+            """
             <style>
                 .block-container {
                     padding-top: 2rem !important;
                 }
             </style>
-        """, unsafe_allow_html=True)
+        """,
+            unsafe_allow_html=True,
+        )
 
         if toc_headers:
-             # Columns: TOC (Left) | Content (Right)
-            col_content, col_toc = st.columns([0.8, 0.2])
+            # Build TOC HTML once, render in two places (mobile top + desktop sidebar)
+            toc_links = ""
+            for level, title, slug in toc_headers:
+                padding = (level - 1) * 12
+                toc_links += f'<a href="#{slug}" class="toc-link" style="padding-left: {padding}px;">{title}</a>'
 
-            with col_content:
-                st.markdown(content, unsafe_allow_html=True)
-
-            with col_toc:
-                # sticky/fixed TOC
-                st.markdown("""
+            # --- Shared styles for both TOC instances + scroll-to-top button ---
+            st.markdown(
+                """
                 <style>
+                    /* Desktop: fixed sidebar TOC */
                     #toc-container {
                         position: fixed;
                         top: 4rem;
@@ -181,22 +180,55 @@ if current_project:
                         max-height: 85vh;
                         overflow-y: auto;
                         padding-left: 15px;
-                        /* Ensure it doesn't hit content */
                         z-index: 100;
                     }
 
-                    /* Mobile: Static position */
-                    @media (max-width: 800px) {
-                        #toc-container {
-                            position: static;
-                            width: 100%;
-                            max-width: none;
-                            margin-bottom: 2rem;
-                            border-bottom: 1px solid #333;
-                            padding-bottom: 1rem;
-                        }
+                    /* Mobile TOC: hidden on desktop, shown on mobile */
+                    .mobile-toc {
+                        display: none;
                     }
 
+                    /* Scroll-to-top button: hidden on desktop */
+                    .scroll-top-btn {
+                        display: none;
+                    }
+
+                    @media (max-width: 800px) {
+                        /* Hide desktop sidebar TOC on mobile */
+                        #toc-container {
+                            display: none;
+                        }
+                        /* Show mobile TOC at top */
+                        .mobile-toc {
+                            display: block;
+                            margin-bottom: 1.5rem;
+                            padding-bottom: 1rem;
+                            border-bottom: 1px solid #333;
+                        }
+                        /* Show scroll-to-top button on mobile */
+                        .scroll-top-btn {
+                            display: none;  /* JS toggles to flex */
+                            position: fixed;
+                            bottom: 1.5rem;
+                            right: 1rem;
+                            width: 42px;
+                            height: 42px;
+                            border-radius: 50%;
+                            background: rgba(0, 242, 234, 0.85);
+                            color: #000;
+                            border: none;
+                            cursor: pointer;
+                            align-items: center;
+                            justify-content: center;
+                            font-size: 1.2rem;
+                            z-index: 999;
+                            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+                            transition: opacity 0.2s;
+                        }
+                        .scroll-top-btn:hover {
+                            opacity: 0.8;
+                        }
+                    }
 
                     .toc-link {
                         display: block;
@@ -222,20 +254,49 @@ if current_project:
                         letter-spacing: 0.5px;
                     }
                 </style>
-                """, unsafe_allow_html=True)
+            """,
+                unsafe_allow_html=True,
+            )
 
-                toc_html = '''
-                <div id="toc-container">
-                    <div class="toc-header">Table of Contents</div>
-                '''
+            # --- Mobile TOC (rendered before columns, above content) ---
+            st.markdown(
+                f'<div class="mobile-toc"><div class="toc-header">Table of Contents</div>{toc_links}</div>',
+                unsafe_allow_html=True,
+            )
 
-                for level, title, slug in toc_headers:
-                    padding = (level - 1) * 12
-                    toc_html += f'<a href="#{slug}" class="toc-link" style="padding-left: {padding}px;">{title}</a>'
+            # --- Columns: Content (left) | Desktop TOC (right) ---
+            col_content, col_toc = st.columns([0.8, 0.2])
 
-                toc_html += '</div>'
+            with col_content:
+                st.markdown(content, unsafe_allow_html=True)
 
-                st.markdown(toc_html, unsafe_allow_html=True)
+            with col_toc:
+                st.markdown(
+                    f'<div id="toc-container"><div class="toc-header">Table of Contents</div>{toc_links}</div>',
+                    unsafe_allow_html=True,
+                )
+
+            # --- Scroll-to-top button (mobile only) ---
+            st.markdown(
+                """
+                <button class="scroll-top-btn" id="scroll-top-btn" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">▲</button>
+                <script>
+                (function() {
+                    var btn = document.getElementById('scroll-top-btn');
+                    if (!btn) return;
+                    window.addEventListener('scroll', function() {
+                        var mq = window.matchMedia('(max-width: 800px)');
+                        if (mq.matches && window.scrollY > 300) {
+                            btn.style.display = 'flex';
+                        } else {
+                            btn.style.display = 'none';
+                        }
+                    });
+                })();
+                </script>
+            """,
+                unsafe_allow_html=True,
+            )
         else:
             if st.button("← Back to Projects"):
                 st.query_params.clear()
@@ -267,7 +328,8 @@ else:
     """
     st.markdown(intro_css, unsafe_allow_html=True)
 
-    st.markdown("""
+    st.markdown(
+        """
     <div class="intro-text">
         <h4 class="intro-italic">Things I tried. Things that broke. Things that taught me something.</h4>
         <p>
@@ -286,7 +348,9 @@ else:
             This is a work in progress. More to come...
         </p>
     </div>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
     st.markdown("---")
 
     # LIST VIEW
@@ -407,7 +471,7 @@ else:
                 tags_html = '<div class="card-tags">'
                 for t in proj["tags"]:
                     tags_html += f'<span class="tech-tag">{html.escape(t)}</span>'
-                tags_html += '</div>'
+                tags_html += "</div>"
 
             html_content += f"""
             <a href='#' id='{proj["filename"]}' class="project-card">
@@ -417,7 +481,7 @@ else:
             </a>
             """
 
-        html_content += '</div>'
+        html_content += "</div>"
 
         clicked_id = click_detector(html_content)
 
