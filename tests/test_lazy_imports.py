@@ -69,3 +69,30 @@ def test_app_does_not_top_level_import_chromadb():
     filepath = os.path.join(REPO_ROOT, "app.py")
     top_level = _get_top_level_import_modules(filepath)
     assert "chromadb" not in top_level
+
+
+def _get_top_level_imported_names(filepath: str) -> set[str]:
+    """Parse a Python file and return the set of names imported at module level."""
+    with open(filepath, encoding="utf-8") as f:
+        tree = ast.parse(f.read(), filename=filepath)
+
+    names = set()
+    for node in ast.iter_child_nodes(tree):
+        if isinstance(node, (ast.ImportFrom, ast.Import)):
+            for alias in node.names:
+                names.add(alias.asname or alias.name)
+    return names
+
+
+def test_app_does_not_top_level_import_generate_voice_answer():
+    """generate_voice_answer must be lazy-imported inside the voice mode block, not at module level.
+
+    A top-level import crashes the entire app on Streamlit Cloud if the
+    underlying module fails to load (observed with Python 3.13 bytecode caching).
+    """
+    filepath = os.path.join(REPO_ROOT, "app.py")
+    names = _get_top_level_imported_names(filepath)
+    assert "generate_voice_answer" not in names, (
+        "generate_voice_answer should NOT be a top-level import in app.py — "
+        "import it lazily inside the voice mode block to isolate failures."
+    )
