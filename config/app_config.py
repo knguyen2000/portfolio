@@ -20,8 +20,9 @@ MODE_FILE_BASED = "File-Based Context"
 MODE_RLM = "Recursive Language Model (RLM)"
 MODE_VECTOR_RAG = "Standard RAG (Vector + Sliding Window)"
 MODE_NLA = "NLA (Natural Language Autoencoder)"
+MODE_VOICE = "Voice"
 
-AVAILABLE_MODES = [MODE_FILE_BASED, MODE_RLM, MODE_VECTOR_RAG, MODE_NLA]
+AVAILABLE_MODES = [MODE_FILE_BASED, MODE_RLM, MODE_VECTOR_RAG, MODE_NLA, MODE_VOICE]
 DEFAULT_MODE_INDEX = 2  # Vector RAG
 
 # --- Vector RAG Thresholds ---

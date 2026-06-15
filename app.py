@@ -2,11 +2,17 @@
 Main entry point for the portfolio Streamlit app.
 Orchestrates UI layout, agent mode selection, chat rendering, and document viewing.
 """
+
 import os
 
 import streamlit as st
 
-from components.agent_dispatch import check_and_set_checkpoint, generate_answer, resume_from_checkpoint
+from components.agent_dispatch import (
+    check_and_set_checkpoint,
+    generate_answer,
+    generate_voice_answer,
+    resume_from_checkpoint,
+)
 from components.chat_renderer import render_chat_history, render_document_viewer
 from components.editor_panel import render_editor_panel
 
@@ -18,6 +24,7 @@ from config.app_config import (
     MODE_NLA,
     MODE_RLM,
     MODE_VECTOR_RAG,
+    MODE_VOICE,
     PAGE_ICON,
     PAGE_LAYOUT,
     PAGE_TITLE,
@@ -33,6 +40,7 @@ from utils.workflow_db import init_db as init_workflow_db
 st.set_page_config(layout=PAGE_LAYOUT, page_title=PAGE_TITLE, page_icon=PAGE_ICON)
 st.markdown(APP_CSS, unsafe_allow_html=True)
 
+
 # --- Data Ingestion ---
 def get_dir_mtime(dir_path: str = "data") -> float:
     """Returns the latest modification time of any file in the directory."""
@@ -45,14 +53,18 @@ def get_dir_mtime(dir_path: str = "data") -> float:
             max_mtime = max(max_mtime, mtime)
     return max_mtime
 
+
 @st.cache_data
 def get_cached_corpus(mtime: float):
     return load_corpus()
 
+
 @st.cache_resource
 def get_genai_client(key: str):
     from google import genai
+
     return genai.Client(api_key=key)
+
 
 # Show a loading indicator while initializing heavy resources on cold start
 _init_placeholder = st.empty()
@@ -101,6 +113,38 @@ try:
             index=DEFAULT_MODE_INDEX,
         )
 
+    # --- Voice Mode: fully separate UI ---
+    if agent_mode == MODE_VOICE:
+        st.markdown("---")
+        if not client:
+            st.error("AI model not configured — voice mode requires a valid API key.")
+        else:
+            voice_input = st.query_params.get("voice_input")
+            pending = st.session_state.get("voice_response") or ""
+
+            if voice_input:
+                st.query_params.clear()
+                log_event(f"Voice input: {voice_input!r}")
+                with st.spinner("Thinking..."):
+                    response_text, token_stats = generate_voice_answer(client, voice_input, docs, api_key)
+                log_event(f"Voice response: {response_text[:80]!r}...")
+                st.session_state.voice_response = response_text
+                st.rerun()
+
+            if pending:
+                st.session_state.voice_response = None
+
+            voice_html_path = os.path.join("static", "voice_component.html")
+            with open(voice_html_path, encoding="utf-8") as vf:
+                voice_html = vf.read()
+
+            escaped = pending.replace("\\", "\\\\").replace("'", "\\'").replace('"', '\\"').replace("\n", " ")
+            voice_html = voice_html.replace("__VOICE_RESPONSE__", escaped)
+
+            st.components.v1.html(voice_html, height=420, scrolling=False)
+
+        st.stop()
+
     # Always use columns to keep the DOM context stable across reruns.
     # When the doc panel is closed, the chat column simply takes the full width.
     if st.session_state.view_doc:
@@ -144,16 +188,31 @@ try:
 
         # Mode Description & Warnings
         if agent_mode == MODE_FILE_BASED:
-            st.markdown(f"<p style='{WARNING_STYLE}'>⚠️ Retrieval Strategy: <b>Full Document Context</b>. Highest accuracy, but high token usage.</p>", unsafe_allow_html=True)
+            st.markdown(
+                f"<p style='{WARNING_STYLE}'>⚠️ Retrieval Strategy: <b>Full Document Context</b>. Highest accuracy, but high token usage.</p>",
+                unsafe_allow_html=True,
+            )
         elif agent_mode == MODE_VECTOR_RAG:
-            st.markdown(f"<p style='{WARNING_STYLE}'>⚡ Retrieval Strategy: <b>Semantic Search (RAG)</b>. Fast and low token usage, but may miss context (enable 'Verify' to check).</p>", unsafe_allow_html=True)
+            st.markdown(
+                f"<p style='{WARNING_STYLE}'>⚡ Retrieval Strategy: <b>Semantic Search (RAG)</b>. Fast and low token usage, but may miss context (enable 'Verify' to check).</p>",
+                unsafe_allow_html=True,
+            )
         elif agent_mode == MODE_RLM:
-            st.markdown(f"<p style='{WARNING_STYLE}'>🧠 Multi-Step Reasoning: Likely to consume the most tokens and take the longest to complete.</p>", unsafe_allow_html=True)
+            st.markdown(
+                f"<p style='{WARNING_STYLE}'>🧠 Multi-Step Reasoning: Likely to consume the most tokens and take the longest to complete.</p>",
+                unsafe_allow_html=True,
+            )
         elif agent_mode == MODE_NLA:
-            st.markdown(f"<p style='{WARNING_STYLE}'>🔬 <b>Natural Language Autoencoder (NLA)</b>: Analyzes and verbalizes the internal representations (Layer 20 activations) of a <b>generic Qwen2.5-7B</b> model.<br>⚠️ <b>Note:</b> This mode has no access to Khuong's portfolio data and is not for asking questions about him.</p>", unsafe_allow_html=True)
+            st.markdown(
+                f"<p style='{WARNING_STYLE}'>🔬 <b>Natural Language Autoencoder (NLA)</b>: Analyzes and verbalizes the internal representations (Layer 20 activations) of a <b>generic Qwen2.5-7B</b> model.<br>⚠️ <b>Note:</b> This mode has no access to Khuong's portfolio data and is not for asking questions about him.</p>",
+                unsafe_allow_html=True,
+            )
 
         if st.session_state.get("verify_enabled") and show_verify:
-            st.markdown("<p style='text-align: center; color: gray; font-size: 0.85em; margin-top: -10px;'><i>Click highlighted text in answers to see sources!</i></p>", unsafe_allow_html=True)
+            st.markdown(
+                "<p style='text-align: center; color: gray; font-size: 0.85em; margin-top: -10px;'><i>Click highlighted text in answers to see sources!</i></p>",
+                unsafe_allow_html=True,
+            )
 
         st.markdown("---")
 

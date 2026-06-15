@@ -5,6 +5,7 @@ from config.app_config import (
     MODE_NLA,
     MODE_RLM,
     MODE_VECTOR_RAG,
+    MODE_VOICE,
 )
 
 
@@ -13,10 +14,11 @@ def test_all_modes_present():
     assert MODE_VECTOR_RAG in AVAILABLE_MODES
     assert MODE_RLM in AVAILABLE_MODES
     assert MODE_NLA in AVAILABLE_MODES
+    assert MODE_VOICE in AVAILABLE_MODES
 
 
 def test_mode_count():
-    assert len(AVAILABLE_MODES) == 4
+    assert len(AVAILABLE_MODES) == 5
 
 
 def test_default_mode_index_in_range():
