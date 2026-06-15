@@ -49,8 +49,17 @@ def get_dir_mtime(dir_path: str = "data") -> float:
 def get_cached_corpus(mtime: float):
     return load_corpus()
 
-# By passing the latest mtime, the cache automatically invalidates if any file is edited manually!
-_raw_docs = get_cached_corpus(get_dir_mtime("data"))
+@st.cache_resource
+def get_genai_client(key: str):
+    from google import genai
+    return genai.Client(api_key=key)
+
+# Show a loading indicator while initializing heavy resources on cold start
+_init_placeholder = st.empty()
+with _init_placeholder.container():
+    with st.spinner("Loading portfolio data..."):
+        _raw_docs = get_cached_corpus(get_dir_mtime("data"))
+_init_placeholder.empty()
 
 # Exclude internal-only files that are not meant for user-facing RAG retrieval.
 # portfolio_capabilities.md is used only by the Workflow Intelligence classifier;
@@ -63,8 +72,7 @@ api_key = st.secrets.get("GOOGLE_API_KEY") or os.getenv("GOOGLE_API_KEY")
 
 client = None
 if api_key:
-    from google import genai
-    client = genai.Client(api_key=api_key)
+    client = get_genai_client(api_key)
 else:
     st.warning("Please set GOOGLE_API_KEY to enable AI features.")
 

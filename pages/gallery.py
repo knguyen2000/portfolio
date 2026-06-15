@@ -439,6 +439,7 @@ def generate_gallery_html(image_data_list):
         sections += section_content
 
     js = """
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
     <script>
