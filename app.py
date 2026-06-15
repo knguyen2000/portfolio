@@ -119,29 +119,34 @@ try:
         if not client:
             st.error("AI model not configured — voice mode requires a valid API key.")
         else:
-            voice_input = st.query_params.get("voice_input")
-            pending = st.session_state.get("voice_response") or ""
+            voice_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "voice")
+            _voice_component = st.components.v1.declare_component("voice_agent", path=voice_dir)
 
-            if voice_input:
-                st.query_params.clear()
-                log_event(f"Voice input: {voice_input!r}")
-                with st.spinner("Thinking..."):
-                    response_text, token_stats = generate_voice_answer(client, voice_input, docs, api_key)
-                log_event(f"Voice response: {response_text[:80]!r}...")
-                st.session_state.voice_response = response_text
-                st.rerun()
+            pending = st.session_state.get("voice_response") or ""
+            component_val = _voice_component(response=pending, key="voice_agent", default=None)
 
             if pending:
                 st.session_state.voice_response = None
 
-            voice_html_path = os.path.join("static", "voice_component.html")
-            with open(voice_html_path, encoding="utf-8") as vf:
-                voice_html = vf.read()
+            if component_val and isinstance(component_val, dict):
+                msg_ts = component_val.get("ts", 0)
+                if msg_ts > st.session_state.voice_last_ts:
+                    st.session_state.voice_last_ts = msg_ts
 
-            escaped = pending.replace("\\", "\\\\").replace("'", "\\'").replace('"', '\\"').replace("\n", " ")
-            voice_html = voice_html.replace("__VOICE_RESPONSE__", escaped)
+                    if component_val.get("type") == "transcript":
+                        voice_input = component_val.get("text", "")
+                        if voice_input:
+                            log_event(f"Voice input: {voice_input!r}")
+                            with st.spinner("Thinking..."):
+                                response_text, token_stats = generate_voice_answer(
+                                    client, voice_input, docs, api_key
+                                )
+                            log_event(f"Voice response: {response_text[:80]!r}...")
+                            st.session_state.voice_response = response_text
+                            st.rerun()
 
-            st.components.v1.html(voice_html, height=420, scrolling=False)
+                    elif component_val.get("type") == "stop":
+                        log_event("Voice: user issued stop command")
 
         st.stop()
 

@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: transparent;
+    color: #fafafa;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 380px;
+    padding: 2rem 1rem;
+  }
+
+  .voice-orb {
+    width: 120px; height: 120px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #00f2ea 0%, #006b66 80%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.3s, box-shadow 0.3s;
+  }
+  .voice-orb.listening {
+    animation: pulse 1.8s ease-in-out infinite;
+    box-shadow: 0 0 40px rgba(0, 242, 234, 0.5);
+  }
+  .voice-orb.processing {
+    animation: spin 1.2s linear infinite;
+    background: radial-gradient(circle, #f0ad4e 0%, #7a5500 80%);
+    box-shadow: 0 0 30px rgba(240, 173, 78, 0.4);
+  }
+  .voice-orb.speaking {
+    animation: glow 0.8s ease-in-out infinite alternate;
+    background: radial-gradient(circle, #5cb85c 0%, #2d6b2d 80%);
+    box-shadow: 0 0 40px rgba(92, 184, 92, 0.5);
+  }
+  .voice-orb.stopped {
+    background: radial-gradient(circle, #777 0%, #333 80%);
+    box-shadow: none; cursor: default;
+  }
+  .voice-orb.error {
+    background: radial-gradient(circle, #d9534f 0%, #6b2a28 80%);
+    box-shadow: 0 0 30px rgba(217, 83, 79, 0.4);
+  }
+  .orb-icon { font-size: 2.5rem; user-select: none; }
+
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.08); }
+  }
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+  @keyframes glow {
+    from { transform: scale(1); }
+    to { transform: scale(1.05); }
+  }
+
+  .status-text {
+    margin-top: 1.5rem; font-size: 1rem;
+    opacity: 0.8; text-align: center; min-height: 1.5em;
+  }
+  .transcript {
+    margin-top: 1rem; font-size: 0.9rem; opacity: 0.6;
+    text-align: center; font-style: italic;
+    max-width: 400px; word-wrap: break-word; min-height: 1.5em;
+  }
+  .unsupported { text-align: center; padding: 2rem; color: #d9534f; }
+  .unsupported h3 { margin-bottom: 0.5rem; }
+  .hint {
+    margin-top: 1.5rem; font-size: 0.8rem;
+    opacity: 0.4; text-align: center;
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+// Minimal Streamlit Component Lib shim (postMessage-based, no npm needed)
+var Streamlit = (function() {
+  function sendMsg(type, data) {
+    var msg = Object.assign({isStreamlitMessage: true, type: type}, data);
+    window.parent.postMessage(msg, "*");
+  }
+  return {
+    setComponentReady: function() { sendMsg("streamlit:componentReady", {apiVersion: 1}); },
+    setFrameHeight: function(h) { sendMsg("streamlit:setFrameHeight", {height: h}); },
+    setComponentValue: function(v) { sendMsg("streamlit:setComponentValue", {value: v}); },
+    RENDER_EVENT: "streamlit:render",
+    events: {
+      addEventListener: function(type, cb) {
+        window.addEventListener("message", function(e) {
+          if (e.data && e.data.type === type) { cb(e); }
+        });
+      }
+    }
+  };
+})();
+</script>
+
+<script>
+(function() {
+  var STOP_WORDS = /\b(stop|shut up|shut it|quiet|be quiet|enough)\b/i;
+  var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var recognition = null;
+  var synth = window.speechSynthesis;
+  var currentState = 'idle';
+  var lastTranscript = '';
+  var initialized = false;
+  var lastSpokenResponse = '';
+
+  function render() {
+    var orbClass = 'voice-orb ' + currentState;
+    var icon = '🎤', statusMsg = '', hint = 'Say "stop" or "shut up" to end the session';
+
+    if (currentState === 'listening') { icon = '🎤'; statusMsg = 'Listening...'; }
+    else if (currentState === 'processing') { icon = '⏳'; statusMsg = 'Thinking...'; }
+    else if (currentState === 'speaking') { icon = '🔊'; statusMsg = 'Speaking...'; }
+    else if (currentState === 'stopped') { icon = '⏹'; statusMsg = 'Voice session ended'; hint = 'Switch to another mode to continue'; }
+    else if (currentState === 'error') { icon = '⚠️'; statusMsg = 'Microphone access denied or unavailable'; hint = 'Check browser permissions and try again'; }
+    else { statusMsg = 'Tap to start'; }
+
+    document.getElementById('app').innerHTML =
+      '<div class="' + orbClass + '" id="orb"><span class="orb-icon">' + icon + '</span></div>' +
+      '<div class="status-text">' + statusMsg + '</div>' +
+      '<div class="transcript">' + (lastTranscript ? '“' + lastTranscript + '”' : '') + '</div>' +
+      '<div class="hint">' + hint + '</div>';
+
+    var orb = document.getElementById('orb');
+    if (orb && (currentState === 'idle' || currentState === 'error')) {
+      orb.onclick = function() { startListening(); };
+    }
+  }
+
+  function setState(s) { currentState = s; render(); }
+
+  function startListening() {
+    if (!recognition) return;
+    setState('listening');
+    try { recognition.start(); } catch(e) { /* already started */ }
+  }
+
+  function speak(text, callback) {
+    setState('speaking');
+    synth.cancel();
+    var utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
+    utterance.onend = function() { if (callback) callback(); };
+    utterance.onerror = function() { if (callback) callback(); };
+    synth.speak(utterance);
+  }
+
+  function initRecognition() {
+    if (!SpeechRecognition) return;
+    recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+
+    recognition.onresult = function(event) {
+      var transcript = event.results[0][0].transcript.trim();
+      lastTranscript = transcript;
+
+      if (STOP_WORDS.test(transcript)) {
+        setState('stopped');
+        synth.cancel();
+        Streamlit.setComponentValue({type: 'stop', ts: Date.now()});
+        return;
+      }
+
+      setState('processing');
+      Streamlit.setComponentValue({type: 'transcript', text: transcript, ts: Date.now()});
+    };
+
+    recognition.onerror = function(event) {
+      if (event.error === 'no-speech') { startListening(); }
+      else if (event.error === 'not-allowed' || event.error === 'service-not-allowed') { setState('error'); }
+      else { startListening(); }
+    };
+
+    recognition.onend = function() {
+      if (currentState === 'listening') {
+        try { recognition.start(); } catch(e) {}
+      }
+    };
+  }
+
+  function onRender(event) {
+    var args = (event.data && event.data.args) || {};
+    var response = args.response || '';
+
+    if (!SpeechRecognition) {
+      document.getElementById('app').innerHTML =
+        '<div class="unsupported"><h3>Browser Not Supported</h3>' +
+        '<p>Voice mode requires Chrome, Edge, or Safari.<br>' +
+        'Firefox is not supported for speech recognition.</p></div>';
+      Streamlit.setFrameHeight(200);
+      return;
+    }
+
+    if (!initialized) {
+      initRecognition();
+      initialized = true;
+    }
+
+    Streamlit.setFrameHeight(420);
+
+    if (response && response !== lastSpokenResponse && currentState !== 'speaking') {
+      lastSpokenResponse = response;
+      speak(response, function() { startListening(); });
+    } else if (!initialized || currentState === 'idle') {
+      render();
+    }
+  }
+
+  Streamlit.events.addEventListener(Streamlit.RENDER_EVENT, onRender);
+  Streamlit.setComponentReady();
+  Streamlit.setFrameHeight(420);
+  render();
+})();
+</script>
+</body>
+</html>

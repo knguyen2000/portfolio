@@ -35,6 +35,8 @@ def init_session_state():
         st.session_state.booking_flow = None
     if "voice_response" not in st.session_state:
         st.session_state.voice_response = None
+    if "voice_last_ts" not in st.session_state:
+        st.session_state.voice_last_ts = 0
 
 
 def log_event(msg: str):
