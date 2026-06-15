@@ -10,7 +10,6 @@ import streamlit as st
 from components.agent_dispatch import (
     check_and_set_checkpoint,
     generate_answer,
-    generate_voice_answer,
     resume_from_checkpoint,
 )
 from components.chat_renderer import render_chat_history, render_document_viewer
@@ -139,6 +138,8 @@ try:
                     if component_val.get("type") == "transcript":
                         voice_input = component_val.get("text", "")
                         if voice_input:
+                            from components.agent_dispatch import generate_voice_answer
+
                             log_event(f"Voice input: {voice_input!r}")
                             with st.spinner("Thinking..."):
                                 response_text, token_stats = generate_voice_answer(
