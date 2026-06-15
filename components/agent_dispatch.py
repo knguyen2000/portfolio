@@ -240,6 +240,17 @@ def _deduplicate_response(text):
     return text
 
 
+def generate_voice_answer(client, prompt_text, docs, api_key):
+    """Process voice input through Vector RAG and return plain text response."""
+    from agents.vector.vector_agent import VectorRAGAgent
+
+    raw_docs = {k: v for k, v in docs.items() if "summaries/" not in k.replace("\\", "/")}
+    log_event("Voice Mode: routing to Vector RAG")
+    agent = VectorRAGAgent(client, MODEL_ID, api_key=api_key, docs=raw_docs)
+    response_text, token_stats = agent.completion(prompt_text, verify_enabled=False)
+    return _deduplicate_response(response_text), token_stats
+
+
 def _run_agent(client, agent_mode, prompt_text, docs, api_key, steps_log, status=None):
     """Run the selected agent and return (response_text, token_stats)."""
     from agents.file_based.file_based_agent import FileBasedAgent

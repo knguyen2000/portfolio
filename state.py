@@ -33,6 +33,13 @@ def init_session_state():
         st.session_state.rerun_id = 0
     if "booking_flow" not in st.session_state:
         st.session_state.booking_flow = None
+    if "voice_response" not in st.session_state:
+        st.session_state.voice_response = None
+    if "voice_last_ts" not in st.session_state:
+        st.session_state.voice_last_ts = 0
+    if "voice_response_id" not in st.session_state:
+        st.session_state.voice_response_id = 0
+
 
 def log_event(msg: str):
     """Appends a timestamped message to the debug log and prints it."""
@@ -42,15 +49,25 @@ def log_event(msg: str):
         st.session_state.debug_log.append(log_msg)
     print(f"DEBUG_LOG: {log_msg}")
 
-def append_response(content: str, html_content: str = None, debug_steps: list = None, token_usage: dict = None, sources: list = None, nla_analysis: dict = None):
+
+def append_response(
+    content: str,
+    html_content: str = None,
+    debug_steps: list = None,
+    token_usage: dict = None,
+    sources: list = None,
+    nla_analysis: dict = None,
+):
     """Adds an assistant response to the chat history, optionally with HTML and debug trace."""
-    st.session_state.messages.append({
-        "role": "assistant",
-        "content": content,
-        "html_content": html_content,
-        "debug_steps": debug_steps,
-        "token_usage": token_usage,
-        "sources": sources,
-        "nla_analysis": nla_analysis,
-    })
+    st.session_state.messages.append(
+        {
+            "role": "assistant",
+            "content": content,
+            "html_content": html_content,
+            "debug_steps": debug_steps,
+            "token_usage": token_usage,
+            "sources": sources,
+            "nla_analysis": nla_analysis,
+        }
+    )
     st.rerun()
