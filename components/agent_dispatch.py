@@ -10,25 +10,7 @@ This module is the central traffic controller. It:
 """
 import streamlit as st
 
-from agents.file_based.file_based_agent import FileBasedAgent
-from agents.rlm.rlm_agent import RLMAgent
-from agents.vector.vector_agent import VectorRAGAgent
 from config.app_config import MODE_NLA, MODE_RLM, MODE_VECTOR_RAG, MODEL_ID
-from engines.checkpoint_engine import build_resume_prompt, should_checkpoint
-from engines.trace_engine import find_maximal_matches
-from engines.workflow_intelligence import detect_concern
-from services.calendly import (
-    CalendlyClient,
-    create_booking,
-    detect_scheduling_intent,
-    extract_booking_info,
-    fetch_available_slots,
-    fetch_event_types,
-    format_slot_time,
-    is_booking_supported,
-    pick_best_slot,
-    validate_email,
-)
 from state import append_response, log_event
 
 
@@ -40,6 +22,19 @@ def _handle_booking_flow(client, agent_mode: str, prompt_text: str):
     the booking flow is active or scheduling intent was detected; returns None to
     fall through to the normal agent pipeline.
     """
+    from services.calendly import (
+        CalendlyClient,
+        create_booking,
+        detect_scheduling_intent,
+        extract_booking_info,
+        fetch_available_slots,
+        fetch_event_types,
+        format_slot_time,
+        is_booking_supported,
+        pick_best_slot,
+        validate_email,
+    )
+
     booking = st.session_state.get("booking_flow")
     is_scheduling = detect_scheduling_intent(prompt_text)
 
@@ -250,6 +245,10 @@ def _deduplicate_response(text):
 
 def _run_agent(client, agent_mode, prompt_text, docs, api_key, steps_log, status=None):
     """Run the selected agent and return (response_text, token_stats)."""
+    from agents.file_based.file_based_agent import FileBasedAgent
+    from agents.rlm.rlm_agent import RLMAgent
+    from agents.vector.vector_agent import VectorRAGAgent
+
     raw_docs = {k: v for k, v in docs.items() if "summaries/" not in k.replace("\\", "/")}
     logger = _make_logger(status, steps_log) if status else None
 
@@ -287,6 +286,9 @@ def _run_agent(client, agent_mode, prompt_text, docs, api_key, steps_log, status
 
 def _run_post_generation(client, prompt_text, response_text, docs, steps_log, token_stats, status=None, force_concern_category=None):
     """Run trace engine + workflow intelligence, then append the response."""
+    from engines.trace_engine import find_maximal_matches
+    from engines.workflow_intelligence import detect_concern
+
     # Collect any NLA analysis produced by the NLA agent
     nla_analysis = st.session_state.pop("pending_nla_analysis", None)
 
@@ -354,6 +356,9 @@ def check_and_set_checkpoint(client, prompt_text):
     in session state and appends a checkpoint message to the chat history.
     Returns True if a checkpoint was set (caller should NOT proceed to generation).
     """
+    from engines.checkpoint_engine import should_checkpoint
+    from services.calendly import detect_scheduling_intent
+
     if not st.session_state.checkpoint_enabled:
         return False
 
@@ -407,6 +412,8 @@ def resume_from_checkpoint(client, agent_mode, docs, api_key):
     Builds an enriched prompt from the checkpoint + user decision, then
     runs the normal agent flow.
     """
+    from engines.checkpoint_engine import build_resume_prompt
+
     checkpoint = st.session_state.pending_checkpoint
     user_decision = checkpoint.get("user_decision", "approved")
     user_edit = checkpoint.get("user_edit", "")
