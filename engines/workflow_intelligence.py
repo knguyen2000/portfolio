@@ -8,8 +8,8 @@ backlog candidates for the AI/ML team review dashboard.
 import json
 import os
 import re
-import time
 
+from google import genai
 
 # ---------------------------------------------------------------------------
 # Internal helpers
@@ -19,7 +19,7 @@ def _load_capabilities() -> str:
     """Load the portfolio capabilities guide used as ground truth for the detector."""
     path = os.path.join("data", "portfolio_capabilities.md")
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             return f.read()
     except Exception:
         return "No capabilities guide found."
@@ -42,7 +42,7 @@ def _generate_content_with_fallback(client, prompt: str) -> str:
     """
     # Gemma can struggle with strict JSON so use Gemini though with lower rate limit
     models_to_try = [
-        "gemini-3.1-flash-lite-preview", 
+        "gemini-3.1-flash-lite-preview",
         "gemini-3-flash",
         "gemini-1.5-flash",
         "gemini-1.5-flash-8b"
@@ -51,7 +51,7 @@ def _generate_content_with_fallback(client, prompt: str) -> str:
     for model in models_to_try:
         try:
             response = client.models.generate_content(
-                model=model, 
+                model=model,
                 contents=prompt,
                 config=genai.types.GenerateContentConfig(
                     temperature=0.1,

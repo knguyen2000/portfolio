@@ -1,5 +1,5 @@
 import os
-from typing import Dict
+
 
 def clean_extracted_text(text: str) -> str:
     """
@@ -10,13 +10,13 @@ def clean_extracted_text(text: str) -> str:
     text = text.replace("\n", " ")
     return " ".join(text.split())
 
-def load_corpus(data_dir: str = "data") -> Dict[str, str]:
+def load_corpus(data_dir: str = "data") -> dict[str, str]:
     """Loads documents from the 'data' folder recursively"""
     if not os.path.exists(data_dir):
         return {}
 
     docs = {}
-    for root, dirs, files in os.walk(data_dir):
+    for root, _dirs, files in os.walk(data_dir):
         for f in files:
             file_path = os.path.join(root, f)
             # Use relative path as key to avoid ambiguity
@@ -24,7 +24,7 @@ def load_corpus(data_dir: str = "data") -> Dict[str, str]:
             try:
                 raw_text = ""
                 if f.endswith(".txt") or f.endswith(".md"):
-                    with open(file_path, "r", encoding="utf-8") as file:
+                    with open(file_path, encoding="utf-8") as file:
                         raw_text = file.read()
                 elif f.endswith(".pdf"):
                     import PyPDF2
@@ -38,15 +38,15 @@ def load_corpus(data_dir: str = "data") -> Dict[str, str]:
                     import docx
                     doc = docx.Document(file_path)
                     raw_text = "\n".join([para.text for para in doc.paragraphs])
-                
+
                 if raw_text:
                     docs[rel_path] = clean_extracted_text(raw_text)
-                
+
             except Exception as e:
                 print(f"Error loading {f}: {e}")
     return docs
 
-def find_maximal_matches(response_text: str, corpus_docs: Dict[str, str], min_len: int = 15):
+def find_maximal_matches(response_text: str, corpus_docs: dict[str, str], min_len: int = 15):
     """
     Greedy Maximal Exact Match algorithm
     Returns a tuple: (annotated_html_string, list_of_matched_document_names)
@@ -55,20 +55,18 @@ def find_maximal_matches(response_text: str, corpus_docs: Dict[str, str], min_le
     matched_sources = set()
     n = len(response_text)
     i = 0
-    
+
     while i < n:
-        best_len = 0
-        best_source = None
-        
+
         # Look ahead window (limit to 400 chars max match check)
         max_lookahead = min(n, i + 400)
-        
+
         longest_match_curr = ""
         source_curr = ""
-        
+
         # Simple iterative check
         current_substring = ""
-        
+
         # Word Boundary Check (Heuristic)
         is_word_boundary = True
         if i > 0 and response_text[i-1].isalnum() and response_text[i].isalnum():
@@ -78,7 +76,7 @@ def find_maximal_matches(response_text: str, corpus_docs: Dict[str, str], min_le
             for j in range(i, max_lookahead):
                 char = response_text[j]
                 current_substring += char
-                
+
                 # Check if this substring exists in any doc
                 exists = False
                 for doc_name, content in corpus_docs.items():
@@ -90,14 +88,14 @@ def find_maximal_matches(response_text: str, corpus_docs: Dict[str, str], min_le
                                 longest_match_curr = current_substring
                                 source_curr = doc_name
                         break # Found in at least one doc, continue extending
-                
+
                 if not exists:
                     break
-        
+
         if len(longest_match_curr) >= min_len:
             # Escape HTML in the text to prevent rendering issues
             safe_text = longest_match_curr.replace("<", "&lt;").replace(">", "&gt;")
-            
+
             # Use an anchor tag for st_click_detector to intercept clicks
             import urllib.parse
             encoded_text = urllib.parse.quote(longest_match_curr)
@@ -111,5 +109,5 @@ def find_maximal_matches(response_text: str, corpus_docs: Dict[str, str], min_le
             safe_char = response_text[i].replace("<", "&lt;").replace(">", "&gt;")
             output_html += safe_char
             i += 1
-            
+
     return output_html.replace("\n", "<br>"), list(matched_sources)

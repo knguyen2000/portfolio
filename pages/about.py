@@ -1,16 +1,13 @@
-import streamlit as st
-import pydeck as pdk
-import pandas as pd
 import os
 import re
+
+import pandas as pd
+import pydeck as pdk
+import streamlit as st
+
+from config.about_data import ABOUT_INTRO_VIDEO_URL, LOCATION_TO_CHAPTER, LOCATIONS, TITLES
 from utils.sidebar import render_sidebar
-from utils.video_modal import handle_video_state, render_video_modal, render_replay_button
-from config.about_data import (
-    ABOUT_INTRO_VIDEO_URL,
-    LOCATIONS,
-    TITLES,
-    LOCATION_TO_CHAPTER
-)
+from utils.video_modal import handle_video_state, render_replay_button, render_video_modal
 
 # --- PAGE CONFIG ---
 st.set_page_config(layout="wide", page_title="About Me", page_icon="✈️")
@@ -35,7 +32,7 @@ st.markdown("""
         border-color: var(--primary-color);
         transform: translateX(5px);
     }
-    
+
     /* The Thread Line */
     .journey-line {
         position: absolute;
@@ -46,7 +43,7 @@ st.markdown("""
         background: linear-gradient(to bottom, #00f2ea, #ff00ff);
         z-index: 0;
     }
-    
+
     /* The Bead/Node */
     .journey-node {
         position: absolute;
@@ -64,7 +61,7 @@ st.markdown("""
         justify-content: center;
         font-size: 10px;
     }
-    
+
     .chapter-title {
         color: var(--primary-color);
         font-weight: bold;
@@ -72,7 +69,7 @@ st.markdown("""
         margin-bottom: 10px;
         font-family: 'Noto Color Emoji', sans-serif;
     }
-    
+
     .journey-text {
         font-family: 'Inter', sans-serif;
         line-height: 1.7;
@@ -98,7 +95,7 @@ def load_text():
     """Reads the biography from file"""
     path = os.path.join("data", "my_life.txt")
     if os.path.exists(path):
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             return f.read()
     return "Biography not found."
 
@@ -133,7 +130,7 @@ current_view = get_map_view("Intro")
 ICON_DATA = []
 for name, coords in LOCATIONS.items():
     # Vung Tau (Home) = Magenta, Others = Cyan
-    color = [255, 0, 255] if name == "Vung Tau" else [0, 255, 255] 
+    color = [255, 0, 255] if name == "Vung Tau" else [0, 255, 255]
     ICON_DATA.append({"name": name, "coordinates": coords, "color": color})
 
 # Convert to DataFrame for PyDeck Selection
@@ -144,10 +141,10 @@ layer_scatter = pdk.Layer(
     id="journey_locations",
     data=df_icons,
     get_position="coordinates",
-    get_fill_color="color", 
+    get_fill_color="color",
     get_radius=5000,
     pickable=True,
-    auto_highlight=True, 
+    auto_highlight=True,
     opacity=0.8,
     stroked=True,
     filled=True,
@@ -181,20 +178,20 @@ st.markdown('<div style="position: relative; padding-left: 20px; border-left: 2p
 for i, chunk in enumerate(chunks):
     if len(chunk) > 50: # Filter empty lines
         header = TITLES[i] if i < len(TITLES) else {"title": "Chapter " + str(i+1)}
-        
+
         # Format the chunk
         lines = chunk.split('\n')
         formatted_html = ""
         in_list = False
-        
+
         for line in lines:
             stripped = line.strip()
             # Handle Bold Syntax
             stripped = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', stripped)
-            
+
             # Handle Markdown Links
             stripped = re.sub(r'\[(.*?)\]\((.*?)\)', r'<a href="\2" target="_blank" style="color: #007bff; text-decoration: none; font-weight: bold;">\1</a>', stripped)
-            
+
             # Check for bullet points
             if stripped.startswith("-") or stripped.startswith("*"):
                 if not in_list:
@@ -208,10 +205,10 @@ for i, chunk in enumerate(chunks):
                     formatted_html += "</ul>"
                     in_list = False
                 formatted_html += f"{stripped}<br><br>"
-        
+
         if in_list:
             formatted_html += "</ul>"
-        
+
         st.markdown(f"""
         <div id="chapter-{i}" style="margin-bottom: 40px; position: relative;">
             <div class='journey-card' style="margin-top: -10px;">
@@ -225,7 +222,7 @@ st.markdown('</div>', unsafe_allow_html=True)
 
 # --- HANDLE MAP SELECTION ---
 if event.selection and "objects" in event.selection:
-    
+
     # Get the list of selected objects from the specific layer
     selected_objects = event.selection["objects"].get("journey_locations")
     if not selected_objects and event.selection["objects"]:
@@ -234,15 +231,15 @@ if event.selection and "objects" in event.selection:
     if selected_objects:
         location_name = selected_objects[0].get("name")
         chapter_idx = LOCATION_TO_CHAPTER.get(location_name)
-        
-        if chapter_idx is not None:             
+
+        if chapter_idx is not None:
              script = f"""
                 <script>
                     function scrollToChapter() {{
                         try {{
                             var doc = window.parent.document;
                             var element = doc.getElementById('chapter-{chapter_idx}');
-                            
+
                             if(element) {{
                                 element.scrollIntoView({{behavior: 'smooth', block: 'center'}});
                                 // Visual feedback: Flash the card
@@ -260,7 +257,7 @@ if event.selection and "objects" in event.selection:
                             console.error("Scroll error:", e);
                         }}
                     }}
-                    
+
                     // Progressive Retries
                     scrollToChapter();
                     setTimeout(scrollToChapter, 500);

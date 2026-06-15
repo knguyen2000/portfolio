@@ -1,8 +1,10 @@
+import os
+
 import streamlit as st
-from utils.sidebar import render_sidebar
+
 from components.guestbook import render_guestbook
 from engines.trace_engine import load_corpus
-import os
+from utils.sidebar import render_sidebar
 
 st.set_page_config(layout="wide", page_title="Community Guestbook", page_icon="📝")
 

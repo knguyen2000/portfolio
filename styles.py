@@ -7,7 +7,7 @@ Centralized here to keep app.py clean.
 APP_CSS = """
 <style>
    .verbatim-match {
-        background-color: #d4edda; 
+        background-color: #d4edda;
         border-bottom: 2px solid #28a745;
         color: #155724;
         cursor: pointer;
@@ -21,8 +21,14 @@ APP_CSS = """
     .main-header {
         text-align: center;
         margin-bottom: 2rem;
+        animation: fadeIn 0.3s ease-in;
     }
-    
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
     div[data-testid="stHorizontalBlock"] > div:nth-child(2) {
         position: sticky;
         top: 4rem;
@@ -35,6 +41,15 @@ APP_CSS = """
         justify-content: center;
         width: 100%;
     }
+
+    section.main > div.block-container {
+        min-height: 80vh;
+    }
+
+    /* Force swap rendering for all web fonts to prevent FOIT layout shift */
+    @font-face { font-family: 'Source Sans Pro'; font-display: swap; }
+    @font-face { font-family: 'Source Serif Pro'; font-display: swap; }
+    @font-face { font-family: 'Source Code Pro'; font-display: swap; }
 </style>
 """
 

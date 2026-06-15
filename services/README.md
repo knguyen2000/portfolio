@@ -1,6 +1,18 @@
-# Services — External Deployment & Infrastructure
+# Services — External Integrations & Deployment
 
-This directory contains code for deploying services to external platforms.
+This directory contains code for external API integrations and deployed services.
+
+## calendly.py
+
+**Calendly API integration** for the Availability page and chat-based booking.
+
+- `CalendlyClient` — authenticated HTTP client wrapping the Calendly REST API (event types, available times, invitee creation)
+- `fetch_event_types()` / `fetch_available_slots()` — high-level helpers for the Availability page
+- `detect_scheduling_intent()` — regex-based intent detection for chat messages
+- `create_booking()` / `extract_booking_info()` — chat-driven booking flow with LLM-assisted info extraction
+- `is_booking_supported()` — returns `False` for NLA mode (no portfolio knowledge)
+
+API token stored in `.streamlit/secrets.toml` as `CALENDLY_API_KEY`.
 
 ## modal_nla.py
 

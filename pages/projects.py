@@ -1,11 +1,12 @@
-import streamlit as st
-import os
-from utils.sidebar import render_sidebar
-from utils.video_modal import handle_video_state, render_video_modal, render_replay_button
-from st_click_detector import click_detector
-import html
 import base64
+import html
+import os
 import re
+
+import streamlit as st
+from st_click_detector import click_detector
+
+from utils.sidebar import render_sidebar
 
 st.set_page_config(layout="wide", page_title="Projects", page_icon="🛋️")
 
@@ -20,33 +21,33 @@ def load_projects(data_dir=os.path.join("data", "projects")):
     projects = []
     if not os.path.exists(data_dir):
         return projects
-        
+
     for f in os.listdir(data_dir):
         if f.endswith(".md"):
             path = os.path.join(data_dir, f)
-            with open(path, "r", encoding="utf-8") as file:
+            with open(path, encoding="utf-8") as file:
                 content = file.read()
-                
+
             # Naive parsing
             lines = content.split('\n')
             title = f"Project: {f}"
             abstract = "No abstract available."
             tags = []
-            
+
             # Parsing State
             title_found = False
-            
+
             for line in lines:
                 stripped = line.strip()
                 if not title_found and stripped.startswith("# "):
                     title = stripped.replace("# ", "").strip()
                     title_found = True
-                    
+
                 if stripped.startswith("**Tags:**"):
                     tag_str = stripped.replace("**Tags:**", "").strip()
                     if tag_str:
                          tags = [t.strip() for t in tag_str.split(",")]
-            
+
             # Find Abstract (Between ## Abstract and the next ##)
             try:
                 if "## Abstract" in content:
@@ -59,7 +60,7 @@ def load_projects(data_dir=os.path.join("data", "projects")):
                             abstract = abstract_part
             except Exception:
                 pass
-                
+
             projects.append({
                 "filename": f,
                 "title": title,
@@ -78,35 +79,35 @@ current_project = st.query_params.get("project")
 if current_project:
     # --- DETAIL VIEW ---
     project_path = os.path.join("data", "projects", current_project)
-    
+
     if os.path.exists(project_path):
-        with open(project_path, "r", encoding="utf-8") as f:
+        with open(project_path, encoding="utf-8") as f:
             content = f.read()
-        
+
         def inject_images_and_get_toc(markdown_text, base_path=os.path.dirname(project_path)):
             # Image Injection
             img_pattern = r'!\[(.*?)\]\((.*?)\)'
-            
+
             def replace_img(match):
                 alt_text = match.group(1)
                 img_path = match.group(2)
                 full_path = os.path.join(base_path, img_path)
-                
+
                 if os.path.exists(full_path):
                     try:
                         with open(full_path, "rb") as img_f:
                             encoded_string = base64.b64encode(img_f.read()).decode()
-                        
+
                         ext = os.path.splitext(full_path)[1].lower().replace(".", "")
                         mime = f"image/{ext}" if ext != "jpg" else "image/jpeg"
-                        
+
                         return f'<img src="data:{mime};base64,{encoded_string}" alt="{alt_text}" style="display: block; margin: 20px auto; max-width: 100%; border-radius: 8px;">'
                     except Exception:
                         return match.group(0)
-                return match.group(0) 
+                return match.group(0)
 
             processed_content = re.sub(img_pattern, replace_img, markdown_text)
-            
+
             # Extract Headers for TOC and inject Anchors
             toc_entries = []
             final_lines = []
@@ -115,21 +116,21 @@ if current_project:
 
             for line in processed_content.split('\n'):
                 stripped = line.strip()
-                
+
                 if stripped.startswith('```'):
                     in_code_block = not in_code_block
-                
+
                 if not in_code_block and stripped.startswith('#'):
                     # Determine level
                     level = len(line.split(' ')[0])
                     # Clean title
                     title_text = stripped.lstrip('#').strip()
-                    
+
                     if title_text and level <= 3:
                         # Generate slug
                         raw_slug = title_text.lower().replace(' ', '-').replace('.', '')
                         cleaned_slug = re.sub(r'[^a-z0-9\-]', '', raw_slug)
-                        
+
                         # Handle duplicates
                         slug = cleaned_slug
                         counter = 1
@@ -137,20 +138,20 @@ if current_project:
                             slug = f"{cleaned_slug}-{counter}"
                             counter += 1
                         existing_slugs.add(slug)
-                        
+
                         toc_entries.append((level, title_text, slug))
-                        
+
                         anchor_tag = f'<span id="{slug}"></span>'
                         final_lines.append(f'{anchor_tag}\n\n{line}')
                     else:
                         final_lines.append(line)
                 else:
                     final_lines.append(line)
-            
+
             return '\n'.join(final_lines), toc_entries
 
         content, toc_headers = inject_images_and_get_toc(content)
-        
+
         # Reduce top padding of the page
         st.markdown("""
             <style>
@@ -163,19 +164,19 @@ if current_project:
         if toc_headers:
              # Columns: TOC (Left) | Content (Right)
             col_content, col_toc = st.columns([0.8, 0.2])
-            
+
             with col_content:
                 st.markdown(content, unsafe_allow_html=True)
-            
+
             with col_toc:
                 # sticky/fixed TOC
                 st.markdown("""
                 <style>
                     #toc-container {
                         position: fixed;
-                        top: 4rem; 
-                        right: 2rem; 
-                        width: 20vw; 
+                        top: 4rem;
+                        right: 2rem;
+                        width: 20vw;
                         max-width: 280px;
                         max-height: 85vh;
                         overflow-y: auto;
@@ -183,7 +184,7 @@ if current_project:
                         /* Ensure it doesn't hit content */
                         z-index: 100;
                     }
-                    
+
                     /* Mobile: Static position */
                     @media (max-width: 800px) {
                         #toc-container {
@@ -195,7 +196,7 @@ if current_project:
                             padding-bottom: 1rem;
                         }
                     }
-                    
+
 
                     .toc-link {
                         display: block;
@@ -222,18 +223,18 @@ if current_project:
                     }
                 </style>
                 """, unsafe_allow_html=True)
-                
-                toc_html = f'''
+
+                toc_html = '''
                 <div id="toc-container">
                     <div class="toc-header">Table of Contents</div>
                 '''
-                
+
                 for level, title, slug in toc_headers:
                     padding = (level - 1) * 12
                     toc_html += f'<a href="#{slug}" class="toc-link" style="padding-left: {padding}px;">{title}</a>'
-                
+
                 toc_html += '</div>'
-                
+
                 st.markdown(toc_html, unsafe_allow_html=True)
         else:
             if st.button("← Back to Projects"):
@@ -242,15 +243,15 @@ if current_project:
             st.markdown(content, unsafe_allow_html=True)
     else:
         st.error(f"Project file '{current_project}' not found.")
-        
+
 else:
     st.title("🛋️ My reading corner")
-    
+
     intro_css = """
     <style>
         .intro-text {
-            margin-bottom: 30px; 
-            line-height: 1.6; 
+            margin-bottom: 30px;
+            line-height: 1.6;
             color: #555555; /* Dark grey for light mode */
         }
         @media (prefers-color-scheme: dark) {
@@ -259,13 +260,13 @@ else:
             }
         }
         .intro-italic {
-            font-style: italic; 
+            font-style: italic;
             opacity: 0.9;
         }
     </style>
     """
     st.markdown(intro_css, unsafe_allow_html=True)
-    
+
     st.markdown("""
     <div class="intro-text">
         <h4 class="intro-italic">Things I tried. Things that broke. Things that taught me something.</h4>
@@ -290,14 +291,14 @@ else:
 
     # LIST VIEW
     projects = load_projects()
-    
+
     if not projects:
         st.info("No projects found in data/projects/")
     else:
         css = """
         <style>
             @import url('https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@400;600&display=swap');
-            
+
             :root {
                 --card-bg-light: #ffffff;
                 --card-bg-dark: #1E1E1E; /* Or #262730 */
@@ -315,9 +316,9 @@ else:
                 font-family: 'Source Sans Pro', sans-serif;
                 padding: 5px; /* prevent shadow crop */
             }
-            
+
             .project-card {
-                background-color: var(--card-bg-light); 
+                background-color: var(--card-bg-light);
                 border: 1px solid var(--border-light);
                 color: var(--text-light);
                 border-radius: 12px;
@@ -343,10 +344,10 @@ else:
             .project-card:hover {
                 transform: translateY(-5px);
                 /* Aura Light Effect - Cyan */
-                box-shadow: 0 0 25px rgba(0, 242, 234, 0.3), 0 0 10px rgba(0, 242, 234, 0.1); 
+                box-shadow: 0 0 25px rgba(0, 242, 234, 0.3), 0 0 10px rgba(0, 242, 234, 0.1);
                 border-color: rgba(0, 242, 234, 0.6);
             }
-            
+
             .card-title {
                 font-size: 1.3em;
                 font-weight: 600;
@@ -354,14 +355,14 @@ else:
                 /* Fallback color if variable fails */
                 color: #31333F;
             }
-            
+
             .card-tags {
                 margin-bottom: 15px;
                 display: flex;
                 flex-wrap: wrap;
                 gap: 8px;
             }
-            
+
             .tech-tag {
                 font-size: 0.75em;
                 background-color: rgba(0, 242, 234, 0.15); /* Subtly tinted bg */
@@ -371,7 +372,7 @@ else:
                 border: 1px solid rgba(0, 242, 234, 0.3);
                 font-weight: 600;
             }
-            
+
             @media (prefers-color-scheme: dark) {
                  .card-title {
                      color: #FFFFFF;
@@ -391,15 +392,15 @@ else:
             }
         </style>
         """
-        
+
         # Build HTML Grid
         html_content = css + '<div class="project-grid">'
-        
+
         for proj in projects:
             safe_title = html.escape(proj["title"])
             abs_text = proj.get("abstract", "")
             safe_abstract = html.escape(abs_text[:200] + "..." if len(abs_text) > 200 else abs_text)
-            
+
             # Build Tags HTML
             tags_html = ""
             if proj.get("tags"):
@@ -407,7 +408,7 @@ else:
                 for t in proj["tags"]:
                     tags_html += f'<span class="tech-tag">{html.escape(t)}</span>'
                 tags_html += '</div>'
-            
+
             html_content += f"""
             <a href='#' id='{proj["filename"]}' class="project-card">
                 <div class="card-title">{safe_title}</div>
@@ -415,11 +416,11 @@ else:
                 <div class="card-abstract">{safe_abstract}</div>
             </a>
             """
-        
+
         html_content += '</div>'
-        
+
         clicked_id = click_detector(html_content)
-        
+
         if clicked_id:
             st.query_params["project"] = clicked_id
             st.rerun()

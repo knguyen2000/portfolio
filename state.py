@@ -1,5 +1,7 @@
-import streamlit as st
 import datetime
+
+import streamlit as st
+
 
 def init_session_state():
     """Initialize necessary Streamlit session state variables."""
@@ -29,6 +31,8 @@ def init_session_state():
         st.session_state.checkpoint_enabled = True
     if "rerun_id" not in st.session_state:
         st.session_state.rerun_id = 0
+    if "booking_flow" not in st.session_state:
+        st.session_state.booking_flow = None
 
 def log_event(msg: str):
     """Appends a timestamped message to the debug log and prints it."""

@@ -13,13 +13,12 @@ Flow:
 """
 import json
 import os
-import re
 import time
 import uuid
+
 from google import genai
 
 from config.app_config import CHECKPOINT_TYPES
-
 
 # ---------------------------------------------------------------------------
 # Internal helpers
@@ -29,7 +28,7 @@ def _load_capabilities() -> str:
     """Load portfolio capabilities so the classifier knows what the app can do."""
     path = os.path.join("data", "portfolio_capabilities.md")
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             return f.read()
     except Exception:
         return ""
@@ -49,59 +48,59 @@ def _generate_with_fallback(client, prompt: str, status_placeholder=None) -> tup
     """Call Gemini with retry + model fallback. Streams thinking blocks to UI."""
     # Gemini as Gemma can leak text to json
     models = [
-        "gemini-3.1-flash-lite-preview", 
+        "gemini-3.1-flash-lite-preview",
         "gemini-3-flash",
         "gemini-1.5-flash",
         "gemini-1.5-flash-8b"
     ]
     last_error = None
-    
+
     for model in models:
         try:
             # Added config for speed and token efficiency
             response_stream = client.models.generate_content_stream(
-                model=model, 
+                model=model,
                 contents=prompt,
                 config=genai.types.GenerateContentConfig(
                     temperature=0.1,
                     max_output_tokens=800, # Sufficient for <think> + JSON
                 )
             )
-            
+
             full_text = ""
             thoughts = ""
             in_think = False
             chunk_tokens = 0
-            
+
             for chunk in response_stream:
                 if hasattr(chunk, "usage_metadata") and chunk.usage_metadata:
                     chunk_tokens = chunk.usage_metadata.total_token_count or chunk_tokens
-                    
+
                 if not chunk.text: continue
                 full_text += chunk.text
-                
+
                 if "<think>" in full_text and not in_think:
                     in_think = True
-                    
+
                 if in_think:
                     start_idx = full_text.find("<think>") + 7
                     end_idx = full_text.find("</think>")
-                    
+
                     if end_idx != -1:
                         thoughts = full_text[start_idx:end_idx].strip()
                         in_think = False
                     else:
                         thoughts = full_text[start_idx:].strip()
-                        
+
                     if status_placeholder and thoughts:
                         # Clean thinking status (remove trailing characters if it's getting long)
                         status_placeholder.markdown(thoughts + " ▌")
-                        
+
             if status_placeholder and thoughts:
                 status_placeholder.markdown(thoughts)
-                
+
             return thoughts, full_text, chunk_tokens
-            
+
         except Exception as e:
             last_error = e
             # Log the error and try the next model immediately unless it's a transient server error
@@ -239,7 +238,7 @@ def build_resume_prompt(checkpoint: dict, user_decision: str,
     """
     original = checkpoint["original_message"]
     interpretation = checkpoint.get("model_interpretation", "")
-    ckpt_type = checkpoint.get("checkpoint_type", "")
+    checkpoint.get("checkpoint_type", "")
 
     if user_decision == "approved":
         context = (

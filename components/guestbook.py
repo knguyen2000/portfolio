@@ -1,14 +1,17 @@
+import difflib
+
 import streamlit as st
 import streamlit.components.v1 as components
-import difflib
+
 from utils.guestbook_db import get_open_change_requests, update_change_request_status
+
 
 def generate_html_diff(base_content, proposed_content):
     differ = difflib.HtmlDiff()
     html_diff = differ.make_file(
-        base_content.splitlines(), 
-        proposed_content.splitlines(), 
-        fromdesc="Live Document", 
+        base_content.splitlines(),
+        proposed_content.splitlines(),
+        fromdesc="Live Document",
         todesc="Proposed Changes",
         context=True,
         numlines=3
@@ -29,31 +32,31 @@ def generate_html_diff(base_content, proposed_content):
 
 def render_guestbook(docs):
     st.header("Community Guestbook")
-    
+
     st.markdown("""
-    **Welcome!** This is a living document shaped by people who visit this portfolio. 
+    **Welcome!** This is a living document shaped by people who visit this portfolio.
     Read what others have suggested below, or leave your own message!
-    
+
     *To leave a message, go to the **Chat** page, turn on **Verify Sources**, and ask the AI about the guestbook. Click the highlighted text in the response to suggest an edit!*
     """)
-    
+
     st.markdown("---")
-    
+
     requests = get_open_change_requests()
-    
+
     if not requests:
         st.info("No open Edit Suggestions.")
         return
-        
+
     for req in requests:
         with st.expander(f"Suggestion for: {req['document_id']} by {req['created_by']}"):
             st.write(f"**Status:** {req['status']}")
-            
+
             # Show diff
             st.subheader("Changes")
             diff_html = generate_html_diff(req['base_content'], req['proposed_content'])
             components.html(diff_html, height=400, scrolling=True)
-            
+
             # Review Actions
             if st.session_state.get("user_role") in ["Reviewer", "Admin"]:
                 col1, col2 = st.columns([1, 1])
@@ -64,7 +67,7 @@ def render_guestbook(docs):
                 with col2:
                     if st.button("Approve & Apply", key=f"approve_{req['id']}", type="primary", use_container_width=True):
                         update_change_request_status(req['id'], "merged", st.session_state.user_role)
-                        
+
                         # Apply changes to actual file (this assumes file exists in data directory)
                         doc_id = req['document_id']
                         import os
@@ -73,13 +76,13 @@ def render_guestbook(docs):
                             with open(doc_path, "w", encoding="utf-8") as f:
                                 f.write(req['proposed_content'])
                             st.success(f"Applied suggestion to file: {doc_path}")
-                            
+
                             # Clear cache
                             st.cache_data.clear()
-                            
+
                         except Exception as e:
                             st.error(f"Failed to update file: {e}")
-                        
+
                         st.rerun()
             else:
                 st.info("You need Reviewer or Admin role to approve or reject.")

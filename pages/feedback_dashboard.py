@@ -5,18 +5,24 @@ Gated behind Admin login. Allows the AI/ML team to triage visitor concerns,
 generate structured backlog candidates, track metrics, and review an audit log
 of every action taken on captured concerns.
 """
-import streamlit as st
 import os
+
+import streamlit as st
 from google import genai
-from utils.sidebar import render_sidebar
-from utils.workflow_db import (
-    get_unresolved_concerns, get_all_concerns,
-    mark_concern_resolved, discard_concern, mark_concern_accepted,
-    get_backlog_candidates, insert_backlog_candidate,
-    get_activity_log
-)
+
 from engines.workflow_intelligence import generate_backlog_candidate
 from state import init_session_state
+from utils.sidebar import render_sidebar
+from utils.workflow_db import (
+    discard_concern,
+    get_activity_log,
+    get_all_concerns,
+    get_backlog_candidates,
+    get_unresolved_concerns,
+    insert_backlog_candidate,
+    mark_concern_accepted,
+    mark_concern_resolved,
+)
 
 st.set_page_config(layout="wide", page_title="Review Dashboard", page_icon="⚙️")
 init_session_state()
@@ -48,7 +54,7 @@ tab1, tab2, tab3, tab4 = st.tabs(["Unresolved Concerns", "Backlog Candidates", "
 with tab1:
     st.subheader("Top Unresolved Concerns")
     concerns = get_unresolved_concerns()
-    
+
     if not concerns:
         st.info("No unresolved concerns at the moment!")
     else:
@@ -59,10 +65,10 @@ with tab1:
             if cat not in categories:
                 categories[cat] = []
             categories[cat].append(c)
-            
+
         for cat, items in categories.items():
             with st.expander(f"{cat} ({len(items)} items)", expanded=True):
-                
+
                 for item in items:
                     col_check, col_content = st.columns([0.05, 0.95])
                     with col_check:
@@ -76,16 +82,16 @@ with tab1:
                         st.session_state.selected_concerns[item['id']] = checked
                     with col_content:
                         st.markdown(f"**Quote:** _{item['original_quote']}_")
-                        
+
                         ws = item.get('workflow_stage')
                         rc = item.get('likely_root_cause')
                         tm = item.get('existing_tool_match')
-                        
+
                         if ws or rc:
                             st.markdown(f"**Workflow Stage:** {ws or 'N/A'}  |  **Root Cause:** {rc or 'N/A'}")
                         if tm:
                             st.markdown(f"**Tool Match:** {tm}")
-                        
+
                         act_col1, act_col2 = st.columns([1, 1])
                         with act_col1:
                             if st.button("✅ Mark Solved", key=f"res_{item['id']}", use_container_width=True):
@@ -95,7 +101,7 @@ with tab1:
                         with act_col2:
                             if st.button("🗑️ Discard", key=f"dis_{item['id']}", use_container_width=True, type="secondary"):
                                 st.session_state.discard_reason[item['id']] = True
-                        
+
                         # Inline discard reason input
                         if st.session_state.discard_reason.get(item['id']):
                             reason = st.text_input(
@@ -110,14 +116,14 @@ with tab1:
                                     st.session_state.discard_reason.pop(item['id'], None)
                                     st.session_state.selected_concerns.pop(item['id'], None)
                                     st.rerun()
-                    
+
                     st.markdown("---")
-                
+
                 # Backlog generation from selected items
                 selected_items = [item for item in items if st.session_state.selected_concerns.get(item['id'])]
                 n_selected = len(selected_items)
                 btn_label = f"🧠 Generate Backlog Candidate ({n_selected} selected)" if n_selected > 0 else "🧠 Generate Backlog Candidate"
-                
+
                 if st.button(btn_label, key=f"gen_{cat}", disabled=(n_selected == 0), type="primary"):
                     client = get_client()
                     if not client:
@@ -132,7 +138,7 @@ with tab1:
                                     for item in selected_items:
                                         mark_concern_accepted(item['id'], backlog_id)
                                         st.session_state.selected_concerns[item['id']] = False
-                                    st.success(f"✅ Backlog candidate created! See the **Backlog Candidates** tab.")
+                                    st.success("✅ Backlog candidate created! See the **Backlog Candidates** tab.")
                                 else:
                                     st.error("The AI returned an empty response. Please try again.")
                             except Exception as e:
@@ -160,26 +166,26 @@ with tab2:
             st.markdown(cand['acceptance_criteria'])
             st.markdown("#### Original Evidence")
             st.text(cand['original_evidence'])
-            
+
 with tab3:
     st.subheader("Workflow Intelligence Metrics")
     all_concerns = get_all_concerns()
     unresolved = get_unresolved_concerns()
     all_candidates = get_backlog_candidates()
-    
+
     # Count by status
     status_counts = {}
     for c in all_concerns:
         s = c.get("status", "unknown")
         status_counts[s] = status_counts.get(s, 0) + 1
-    
+
     col1, col2, col3, col4, col5 = st.columns(5)
     col1.metric("Total Captured", len(all_concerns))
     col2.metric("🟡 Unresolved", len(unresolved))
     col3.metric("✅ Solved", status_counts.get("solved", 0))
     col4.metric("🗑️ Discarded", status_counts.get("discarded", 0))
     col5.metric("🟢 In Backlog", status_counts.get("accepted_to_backlog", 0))
-    
+
     if all_concerns:
         st.markdown("---")
         st.markdown("#### Breakdown by Category")
@@ -193,7 +199,7 @@ with tab3:
 with tab4:
     st.subheader("Audit Log")
     st.caption("Every action taken on a concern is logged here.")
-    
+
     log = get_activity_log()
     if not log:
         st.info("No actions logged yet.")

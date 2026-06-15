@@ -1,12 +1,13 @@
-import streamlit as st
-import os
-import io
 import base64
-import random
-from PIL import Image
-from utils.sidebar import render_sidebar
-from config.about_data import GALLERY_CAPTIONS, GALLERY_SUBTITLES, GALLERY_MAIN_TITLE, GALLERY_MAIN_SUBTITLE
+import io
+import os
+
+import streamlit as st
 import streamlit.components.v1 as components
+from PIL import Image
+
+from config.about_data import GALLERY_CAPTIONS, GALLERY_MAIN_SUBTITLE, GALLERY_MAIN_TITLE, GALLERY_SUBTITLES
+from utils.sidebar import render_sidebar
 
 st.set_page_config(layout="wide", page_title="Gallery", page_icon="🖼️")
 
@@ -438,6 +439,7 @@ def generate_gallery_html(image_data_list):
         sections += section_content
 
     js = """
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
     <script>

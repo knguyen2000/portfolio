@@ -14,9 +14,8 @@ import re
 
 from google.genai import types
 
-from agents.rlm.prompts.rlm_prompts import RLM_SYSTEM_PROMPT
 from agents.rlm.base import build_corpus, execute_sandbox_code, format_execution_result
-
+from agents.rlm.prompts.rlm_prompts import RLM_SYSTEM_PROMPT
 
 # ---------------------------------------------------------------------------
 # Parsing helpers

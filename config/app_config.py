@@ -20,8 +20,6 @@ MODE_FILE_BASED = "File-Based Context"
 MODE_RLM = "Recursive Language Model (RLM)"
 MODE_VECTOR_RAG = "Standard RAG (Vector + Sliding Window)"
 MODE_NLA = "NLA (Natural Language Autoencoder)"
-# TODO: Re-enable once v2 is finalized
-# MODE_INSIGHT_RLM = "Insight-Aware RLM"
 
 AVAILABLE_MODES = [MODE_FILE_BASED, MODE_RLM, MODE_VECTOR_RAG, MODE_NLA]
 DEFAULT_MODE_INDEX = 2  # Vector RAG
