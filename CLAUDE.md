@@ -61,6 +61,22 @@ pytest -x              # stop on first failure
 - Adding an agent mode requires syncing three places: `config/app_config.py` (mode constant + `AVAILABLE_MODES`), `components/agent_dispatch.py` (routing branch), and `app.py` (mode description in UI). Missing any one causes a silent runtime failure.
 - UI changes must work at mobile (375px), tablet (768px), and desktop (1440px) viewports. When adding or modifying any UI element, consider how it reflows at smaller widths — avoid fixed widths, use Streamlit's column/container layout, and ensure interactive elements remain tappable on touch devices.
 
+### Extensibility and Modification Policy
+
+Write code that can be extended without rewriting. Use patterns (hooks, registries, strategy/plugin, configuration-driven behavior) that let future features plug in rather than fork existing logic.
+
+**Extend, don't modify.** When working on an existing codebase, default to extending existing code rather than modifying it. Add new functions, new branches, new modules — don't rewrite working lines unless there's no alternative.
+
+**Before touching any existing file**, read the full function (and its callers if modifying a public interface) to understand the current behavior, contracts, and assumptions. Never modify code you haven't read.
+
+**When modification is unavoidable**, follow this protocol:
+1. **Justify** — confirm there is no extend-only path (new function, wrapper, decorator, subclass, config entry)
+2. **Read** — read the full file (not just the target function) and at minimum 2-3 callers of the code being modified to understand the ripple effects
+3. **Scope** — keep the change to the minimum lines necessary
+4. **Impact analysis** — grep for all callers, importers, and dependents of the changed code
+5. **Test all affected paths** — not just the new feature, but every feature that touches the modified lines. If existing tests don't cover a dependent path, add a regression test before making the change.
+6. **Note in commit body** — explain why modification was necessary and what was verified
+
 ### Task Journal
 
 Every task gets a journal file: `JOURNAL-<branch-name>.md` in the project root (gitignored). This serves two purposes: helps the dev understand how a feature was built without reading every diff, and enables session recovery when context runs out.
@@ -109,6 +125,8 @@ SPEC: [which section of SPEC.md this covers]
 - Mechanical summaries ("ran ruff, it passed") — only log things a future reader or session needs
 
 **Context pressure:** If the conversation is getting long and you sense context may run out soon, write the handoff entry immediately — don't wait for the next natural breakpoint. Update Status (check off what's done) and Current State (where you are mid-story, what's left). A new session reading this should be able to continue without asking the dev what happened.
+
+**Explicit handoff:** The dev can run `/resume` in a new session to recover context from the journal. When ending a session, proactively suggest: "Run `/resume` next session to pick up where we left off."
 
 ## How to Add Things
 
@@ -186,15 +204,14 @@ When creating issues, read the templates in `.github/ISSUE_TEMPLATE/` and follow
 
 When the user asks to commit and/or create a PR:
 
-1. If `SPEC.md` exists, read it — use its context to write the commit message body and PR description, then delete it (it's a planning artifact, not code)
-2. Run `/conform` — verify changes match codebase patterns
-3. Run `/preflight` — all 11 checks must pass before proceeding
-4. Run `/inspect` — browser-level check (pages load, no console errors, Lighthouse, perf)
-5. Stage relevant files (never `git add .` — be explicit)
-6. Commit following the message format above
-7. Create a branch if not already on a feature branch (never commit features directly to `main`)
-8. Push the branch and create a PR using the template above
-9. Report the PR URL — do NOT merge. The user reviews and approves.
+1. If `SPEC.md` exists, read it — use its context to write the commit message body and PR description, then delete it (it's a planning artifact, not code). If the session dies before deletion, the next session should check whether SPEC.md belongs to the current branch or a previous task — if stale, delete it before proceeding.
+2. **Verify** `/conform` and `/preflight` have already passed during the per-task cycle. If code changed since they last ran (e.g., doc sync fixes, last-minute tweaks), re-run only the affected checks with `/preflight recheck`. Do NOT re-run the full suite if nothing changed — it wastes context.
+3. **Do NOT re-run `/inspect`** unless code changed since the last browser test. `/inspect` should have already run after implementation (see per-task cycle in `/kickoff`).
+4. Stage relevant files (never `git add .` — be explicit)
+5. Commit following the message format above
+6. Create a branch if not already on a feature branch (never commit features directly to `main`)
+7. Push the branch and create a PR using the template above
+8. Report the PR URL — do NOT merge. The user reviews and approves.
 
 Never force-push, never merge without user approval, never push directly to `main`.
 

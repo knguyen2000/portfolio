@@ -31,14 +31,22 @@ This command is used when:
    - The failure means the fix is incomplete or introduced a regression. Fix the **source code**, not the test.
    - Return to step 4.
 
-6. **Report results.** Show:
+6. **Verify conformance.** Run a quick pattern check on the changed source files:
+   - Does the fix follow the same naming, import, and error handling patterns as neighboring code?
+   - If existing code was modified: was the change minimal? Are callers tested?
+   - If the fix introduced new functions: is there a test for each?
+   - If any conformance issue is found, fix it before reporting results.
+
+7. **Report results.** Show:
    - Which source files were fixed
    - Whether new test cases were added (list them by name)
+   - Conformance status of the fix
    - Full pytest output summary
    - One-line verdict: **All tests pass** or **N failures remain**
 
-## Rules (non-negotiable)
+## Rules
 
-- **Never delete, rename, or modify existing test lines.** Not even whitespace or comments.
+- **Default: never delete, rename, or modify existing test lines.** Not even whitespace or comments.
+- **Exception:** If a test asserts behavior that the bugfix *intentionally and correctly* changes (e.g., the old assertion encoded the bug), explain why the test is wrong and get explicit user approval before modifying it. Show the old assertion, the new assertion, and why the new behavior is correct.
 - **Never use `--no-verify` or skip hooks.**
-- If a test is genuinely wrong (tests the wrong behavior), stop and ask the user before touching it.
+- If uncertain whether a test is wrong or the fix is incomplete, stop and ask the user.
