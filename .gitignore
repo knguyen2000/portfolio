@@ -24,6 +24,7 @@ settings.*
 SPEC.md
 TODO.md
 TASKS.md
+JOURNAL-*.md
 
 # OS / IDE
 .DS_Store

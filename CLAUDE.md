@@ -61,6 +61,55 @@ pytest -x              # stop on first failure
 - Adding an agent mode requires syncing three places: `config/app_config.py` (mode constant + `AVAILABLE_MODES`), `components/agent_dispatch.py` (routing branch), and `app.py` (mode description in UI). Missing any one causes a silent runtime failure.
 - UI changes must work at mobile (375px), tablet (768px), and desktop (1440px) viewports. When adding or modifying any UI element, consider how it reflows at smaller widths — avoid fixed widths, use Streamlit's column/container layout, and ensure interactive elements remain tappable on touch devices.
 
+### Task Journal
+
+Every task gets a journal file: `JOURNAL-<branch-name>.md` in the project root (gitignored). This serves two purposes: helps the dev understand how a feature was built without reading every diff, and enables session recovery when context runs out.
+
+**Format:**
+```markdown
+# Journal: [task name]
+Branch: feat/xxx
+SPEC: [which section of SPEC.md this covers]
+
+## Status
+- [x] Story 1: description (commit sha)
+- [ ] Story 2: description
+- [ ] Story 3: description
+
+## Current State
+[What's working, what's in progress, what's blocked. Updated at each breakpoint.]
+
+## Key Decisions
+- [Decision]: [why, and what was the alternative]
+
+## Log
+### [timestamp]
+**Done:** [what was completed]
+**Next:** [what to do next]
+
+### [timestamp]
+**Done:** ...
+**Problem:** [unexpected issue and how it was resolved]
+**Next:** ...
+```
+
+**When to WRITE (append) — only at these breakpoints:**
+- After completing a user story
+- After making a non-obvious design decision (the "why" matters)
+- After hitting and resolving an unexpected problem
+- Before ending a session (handoff entry — update Status and Current State)
+
+**When to READ:**
+- At session start: if the journal exists, read Status and Current State sections to recover context. Do not re-read the full Log unless something is unclear.
+- Never during normal work — you already have context from the current session.
+
+**What NOT to write:**
+- Every file edit ("edited line 42 of app.py") — that's the commit log's job
+- Code snippets — reference `file:line` instead
+- Mechanical summaries ("ran ruff, it passed") — only log things a future reader or session needs
+
+**Context pressure:** If the conversation is getting long and you sense context may run out soon, write the handoff entry immediately — don't wait for the next natural breakpoint. Update Status (check off what's done) and Current State (where you are mid-story, what's left). A new session reading this should be able to continue without asking the dev what happened.
+
 ## How to Add Things
 
 - **Add a project** → drop `data/projects/new.md`. Zero code.

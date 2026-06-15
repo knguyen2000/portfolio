@@ -42,10 +42,11 @@ This project uses [Claude Code](https://claude.ai/code) as the primary developme
 
 ### Starting work: `/kickoff`
 
-1. **Pick tasks from the backlog** — paste them (any format) into `TASKS.md` in the project root
-2. **Run `/kickoff`** — Claude reads your tasks, asks clarifying questions (never assumes), and generates a proper `SPEC.md`
-3. **Claude recommends serial or parallel** — based on file overlap and dependency analysis
-4. **You approve** — Claude starts implementing
+1. **Sync main** — `git checkout main && git pull`. Never plan from a stale branch.
+2. **Pick tasks from the backlog** — paste them (any format) into `TASKS.md` in the project root
+3. **Run `/kickoff`** — Claude reads your tasks, asks clarifying questions (never assumes), and generates a proper `SPEC.md`
+4. **Claude recommends a workflow** — serial, parallel, or hybrid based on file overlap and dependency analysis
+5. **You approve** — Claude branches out and starts implementing
 
 ### Task sizing
 
@@ -55,9 +56,9 @@ This project uses [Claude Code](https://claude.ai/code) as the primary developme
 | Medium | 1-4 hours, 5-15 files | SPEC.md with stories → TDD → commit per story |
 | Large | 4+ hours, 15+ files | SPEC.md with phases → scaffold → implement per phase → integrate |
 
-### Serial vs parallel
+### Workflow modes
 
-**Serial (default)** — tasks are worked one at a time, each gets its own branch and PR. Use when tasks share files or have dependencies.
+**Serial (default)** — tasks are worked one at a time. Each gets its own branch and PR. After each PR merges, pull main before starting the next task.
 
 **Parallel** — tasks run in separate git worktrees simultaneously. Only when ALL of these are true:
 - Each task takes >1 hour (otherwise serial is faster)
@@ -65,7 +66,25 @@ This project uses [Claude Code](https://claude.ai/code) as the primary developme
 - Zero import dependencies between tasks
 - Zero shared state (session_state keys, config values)
 
+**Hybrid** — some tasks conflict, others don't. Group conflicting tasks into serial chains; run independent groups in parallel. Example: Tasks 1+2 share `app.py` (serial chain A), Tasks 3+4 share state keys (serial chain B), but groups A and B are independent (parallel).
+
+### Testing before merge (parallel and hybrid)
+
+1. **Test each worktree/group individually** — catches bugs within each task's scope
+2. **Create a throwaway `test/integration` branch** — merge all task branches into it, run the app, test everything together. This catches cross-task conflicts. Never push this branch.
+3. **Create separate PRs** — one per task (not one giant PR). Reviewer sees focused, reviewable diffs.
+4. **Merge in dependency order** — rebase and re-test between each merge
+
 `/kickoff` runs this analysis automatically and recommends the right approach.
+
+### Task journals
+
+Each task gets a `JOURNAL-<branch-name>.md` file (gitignored). It tracks what was built, why, and what's left. Two purposes:
+
+1. **For you** — understand how a feature was implemented without reading every diff. Review the journal alongside the PR to verify the agent's reasoning, not just its output.
+2. **For session recovery** — if a Claude session runs out of context, the next session reads the journal and picks up where it left off. No need to re-explain.
+
+The journal is updated at natural breakpoints (story completion, design decisions, problems), not after every edit. See CLAUDE.md for the full format.
 
 ### Typical workflow (after kickoff)
 
