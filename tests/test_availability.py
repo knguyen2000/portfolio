@@ -193,3 +193,110 @@ class TestStory5ChatBooking:
         assert is_booking_supported("Standard RAG (Vector + Sliding Window)") is True
         assert is_booking_supported("Recursive Language Model (RLM)") is True
         assert is_booking_supported("NLA (Natural Language Autoencoder)") is False
+
+
+# ---------------------------------------------------------------------------
+# Bug 1a fix: Timezone-aware slot matching
+# ---------------------------------------------------------------------------
+
+
+class TestDirectMatchTimezone:
+    """_direct_match must compare against localized time_label, not UTC ISO."""
+
+    def _make_slots(self):
+        return [
+            {
+                "date": "2026-06-15",
+                "time_label": "09:00 AM EDT",
+                "start_time": "2026-06-15T13:00:00.000000Z",
+                "scheduling_url": "https://calendly.com/test",
+            },
+            {
+                "date": "2026-06-15",
+                "time_label": "09:30 AM EDT",
+                "start_time": "2026-06-15T13:30:00.000000Z",
+                "scheduling_url": "https://calendly.com/test",
+            },
+            {
+                "date": "2026-06-16",
+                "time_label": "02:00 PM CDT",
+                "start_time": "2026-06-16T19:00:00.000000Z",
+                "scheduling_url": "https://calendly.com/test",
+            },
+        ]
+
+    def test_natural_language_9am_june_15(self):
+        from services.calendly import _direct_match
+
+        result = _direct_match("9am June 15 ET", self._make_slots())
+        assert result is not None
+        assert result["time_label"] == "09:00 AM EDT"
+
+    def test_pm_time_matches(self):
+        from services.calendly import _direct_match
+
+        result = _direct_match("2pm June 16", self._make_slots())
+        assert result is not None
+        assert result["time_label"] == "02:00 PM CDT"
+
+    def test_exact_suggested_text_matches(self):
+        from services.calendly import _direct_match
+
+        result = _direct_match("2026-06-15 at 09:00 AM EDT", self._make_slots())
+        assert result is not None
+        assert result["date"] == "2026-06-15"
+
+    def test_wrong_date_no_match(self):
+        from services.calendly import _direct_match
+
+        slots = [self._make_slots()[0]]  # only June 15
+        result = _direct_match("9am June 16 ET", slots)
+        assert result is None
+
+    def test_bold_markdown_from_suggestions(self):
+        from services.calendly import _direct_match
+
+        result = _direct_match("**2026-06-15** at 09:00 AM EDT", self._make_slots())
+        assert result is not None
+
+    def test_time_with_colon(self):
+        from services.calendly import _direct_match
+
+        result = _direct_match("9:00am June 15", self._make_slots())
+        assert result is not None
+        assert result["time_label"] == "09:00 AM EDT"
+
+
+# ---------------------------------------------------------------------------
+# Bug 1b fix: build_booking_link replaces broken create_invitee
+# ---------------------------------------------------------------------------
+
+
+class TestBuildBookingLink:
+    def test_includes_name_email_date(self):
+        from services.calendly import build_booking_link
+
+        event_type = {"scheduling_url": "https://calendly.com/khuong/30min"}
+        url = build_booking_link(event_type, "Jane Doe", "jane@example.com", "2026-06-15")
+        assert "calendly.com/khuong/30min" in url
+        assert "name=Jane" in url
+        assert "email=jane" in url
+        assert "date=2026-06-15" in url
+        assert "month=2026-06" in url
+
+    def test_without_date(self):
+        from services.calendly import build_booking_link
+
+        event_type = {"scheduling_url": "https://calendly.com/khuong/30min"}
+        url = build_booking_link(event_type, "Jane", "jane@example.com")
+        assert "calendly.com/khuong/30min" in url
+        assert "date" not in url
+        assert "month" not in url
+
+    def test_url_encodes_special_chars(self):
+        from services.calendly import build_booking_link
+
+        event_type = {"scheduling_url": "https://calendly.com/khuong/30min"}
+        url = build_booking_link(event_type, "Jane O'Brien", "jane@example.com", "2026-06-15")
+        assert "calendly.com/khuong/30min" in url
+        assert " " not in url.split("?")[1]  # no raw spaces in query string

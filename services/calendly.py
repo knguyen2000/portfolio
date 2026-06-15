@@ -19,10 +19,12 @@ BASE_URL = "https://api.calendly.com"
 class CalendlyClient:
     def __init__(self, token):
         self.session = requests.Session()
-        self.session.headers.update({
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json",
-        })
+        self.session.headers.update(
+            {
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            }
+        )
         self._user_uri = None
         self._timezone = None
 
@@ -56,10 +58,13 @@ class CalendlyClient:
         return self._timezone
 
     def list_event_types(self):
-        data = self._get("/event_types", params={
-            "user": self.user_uri,
-            "active": "true",
-        })
+        data = self._get(
+            "/event_types",
+            params={
+                "user": self.user_uri,
+                "active": "true",
+            },
+        )
         return [
             {
                 "name": et["name"],
@@ -75,11 +80,14 @@ class CalendlyClient:
         now = datetime.now(ZoneInfo("UTC"))
         start = now.isoformat()
         end = (now + timedelta(days=days)).isoformat()
-        data = self._get("/event_type_available_times", params={
-            "event_type": event_type_uri,
-            "start_time": start,
-            "end_time": end,
-        })
+        data = self._get(
+            "/event_type_available_times",
+            params={
+                "event_type": event_type_uri,
+                "start_time": start,
+                "end_time": end,
+            },
+        )
         return [
             {
                 "start_time": slot["start_time"],
@@ -91,10 +99,13 @@ class CalendlyClient:
 
     def create_invitee(self, event_type_uri, name, email):
         event_uuid = event_type_uri.rsplit("/", 1)[-1]
-        data = self._post(f"/scheduled_events/{event_uuid}/invitees", json_data={
-            "name": name,
-            "email": email,
-        })
+        data = self._post(
+            f"/scheduled_events/{event_uuid}/invitees",
+            json_data={
+                "name": name,
+                "email": email,
+            },
+        )
         return data
 
 
@@ -152,6 +163,23 @@ def create_booking(client, event_type_uri, name, email):
         return None
 
 
+def build_booking_link(event_type, name, email, slot_date=None):
+    from urllib.parse import urlencode
+
+    base_url = event_type["scheduling_url"]
+    params = {}
+    if name:
+        params["name"] = name
+    if email:
+        params["email"] = email
+    if slot_date:
+        params["month"] = slot_date[:7]
+        params["date"] = slot_date
+    if params:
+        return f"{base_url}?{urlencode(params)}"
+    return base_url
+
+
 def is_booking_supported(agent_mode):
     return agent_mode != MODE_NLA
 
@@ -171,14 +199,19 @@ def extract_booking_info(client, model_id: str, message: str) -> tuple[dict, int
     from google import genai
 
     prompt = (
-        'Extract scheduling details from the message below.\n'
+        "Extract scheduling details from the message below.\n"
         'Return ONLY a JSON object with keys "name", "email", "preferred_time".\n'
-        'Set a key to null if the info is absent.\n\n'
-        'Examples:\n'
+        "Set a key to null if the info is absent.\n"
+        "For preferred_time, extract ANY time/date reference, even if embedded in a longer sentence.\n\n"
+        "Examples:\n"
         '- "I\'m Jane Doe, jane@example.com, free Thursday 2pm" → '
         '{"name":"Jane Doe","email":"jane@example.com","preferred_time":"Thursday 2pm"}\n'
         '- "schedule a call" → {"name":null,"email":null,"preferred_time":null}\n'
-        '- "Ryan here, ryan@test.com" → {"name":"Ryan","email":"ryan@test.com","preferred_time":null}\n\n'
+        '- "Ryan here, ryan@test.com" → {"name":"Ryan","email":"ryan@test.com","preferred_time":null}\n'
+        '- "can I book a meeting at 9am June 15 ET" → '
+        '{"name":null,"email":null,"preferred_time":"9am June 15 ET"}\n'
+        '- "book a call with him tomorrow at 2pm" → '
+        '{"name":null,"email":null,"preferred_time":"tomorrow at 2pm"}\n\n'
         f'Message: "{message}"\n\n'
         "Return ONLY the JSON object."
     )
@@ -204,16 +237,44 @@ def extract_booking_info(client, model_id: str, message: str) -> tuple[dict, int
 
 
 _MONTH_MAP = {
-    "january": "01", "february": "02", "march": "03", "april": "04",
-    "may": "05", "june": "06", "july": "07", "august": "08",
-    "september": "09", "october": "10", "november": "11", "december": "12",
-    "jan": "01", "feb": "02", "mar": "03", "apr": "04",
-    "jun": "06", "jul": "07", "aug": "08", "sep": "09",
-    "oct": "10", "nov": "11", "dec": "12",
+    "january": "01",
+    "february": "02",
+    "march": "03",
+    "april": "04",
+    "may": "05",
+    "june": "06",
+    "july": "07",
+    "august": "08",
+    "september": "09",
+    "october": "10",
+    "november": "11",
+    "december": "12",
+    "jan": "01",
+    "feb": "02",
+    "mar": "03",
+    "apr": "04",
+    "jun": "06",
+    "jul": "07",
+    "aug": "08",
+    "sep": "09",
+    "oct": "10",
+    "nov": "11",
+    "dec": "12",
 }
 
 _HOUR_RE = re.compile(r"(\d{1,2})(?::(\d{2}))?\s*(am|pm)", re.IGNORECASE)
 _DAY_RE = re.compile(r"\b(\d{1,2})\b")
+
+
+def _to_12h(hour_24_str, minute_str):
+    h = int(hour_24_str)
+    if h == 0:
+        return f"12:{minute_str} AM"
+    if h < 12:
+        return f"{h:02d}:{minute_str} AM"
+    if h == 12:
+        return f"12:{minute_str} PM"
+    return f"{h - 12:02d}:{minute_str} PM"
 
 
 def _direct_match(preferred_time, flat_slots):
@@ -254,7 +315,7 @@ def _direct_match(preferred_time, flat_slots):
     if matched_month:
         remaining = pref
         if hour_match:
-            remaining = pref[:hour_match.start()] + pref[hour_match.end():]
+            remaining = pref[: hour_match.start()] + pref[hour_match.end() :]
         day_candidates = _DAY_RE.findall(remaining)
         for d in day_candidates:
             if 1 <= int(d) <= 31:
@@ -263,9 +324,9 @@ def _direct_match(preferred_time, flat_slots):
 
     if matched_month and matched_day and matched_hour:
         target_date = f"-{matched_month}-{matched_day}"
-        target_time = f"{matched_hour}:{matched_minute}"
+        target_time_12h = _to_12h(matched_hour, matched_minute)
         for slot in flat_slots:
-            if target_date in slot["date"] and target_time in slot["start_time"]:
+            if target_date in slot["date"] and target_time_12h.lower() in slot["time_label"].lower():
                 return slot
 
     if matched_month and matched_day:
@@ -274,9 +335,9 @@ def _direct_match(preferred_time, flat_slots):
         if len(candidates) == 1:
             return candidates[0]
         if matched_hour and candidates:
-            target_time = f"{matched_hour}:{matched_minute}"
+            target_time_12h = _to_12h(matched_hour, matched_minute)
             for s in candidates:
-                if target_time in s["start_time"]:
+                if target_time_12h.lower() in s["time_label"].lower():
                     return s
 
     return None
