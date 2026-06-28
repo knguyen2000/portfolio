@@ -129,8 +129,13 @@ current_view = get_map_view("Intro")
 # LOCATIONS dict to list for PyDeck
 ICON_DATA = []
 for name, coords in LOCATIONS.items():
-    # Vung Tau (Home) = Magenta, Others = Cyan
-    color = [255, 0, 255] if name == "Vung Tau" else [0, 255, 255]
+    # Vung Tau (Home) = Magenta, Roanoke (Current Base) = Orange, Others = Cyan
+    if name == "Vung Tau":
+        color = [255, 0, 255]
+    elif "Roanoke" in name:
+        color = [255, 165, 0]
+    else:
+        color = [0, 255, 255]
     ICON_DATA.append({"name": name, "coordinates": coords, "color": color})
 
 # Convert to DataFrame for PyDeck Selection
