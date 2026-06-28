@@ -35,6 +35,7 @@ LOCATIONS = {
 
     # USA
     "Virginia": [-78.4764, 38.0293], # Charlottesville
+    "Roanoke VA (Current Base)": [-79.9414, 37.2710],
     "Washington DC": [-77.0369, 38.9072],
     "Maryland": [-76.4922, 38.9784], # Annapolis
     "New York": [-74.0060, 40.7128], # NYC
@@ -54,6 +55,8 @@ LOCATIONS = {
     "New Mexico": [-106.6504, 35.0844], # Albuquerque
     "Oklahoma": [-97.5164, 35.4676], # Oklahoma City
     "Missouri": [-90.1994, 38.6270], # St. Louis
+    "Nebraska": [-95.9375, 41.2586], # Omaha
+    "Kentucky": [-85.7514, 38.2561], # Louisville
 }
 
 TITLES = [
@@ -62,7 +65,8 @@ TITLES = [
     {"title": "Summer in a city I have always dreamed of - Tokyo 🇯🇵"},
     {"title": "Undergrad life in Finland 🇫🇮 (🇭🇺, 🇵🇱, 🇩🇰, 🇩🇪, 🇸🇬)"},
     {"title": "Working in Vietnam and business trip to Denmark 🇻🇳 🇩🇰 (🇹🇭, 🇲🇾, 🇰🇷, 🇸🇪, 🇦🇹, 🇮🇹, 🇫🇷)"},
-    {"title": "American Dream 🇺🇸"},
+    {"title": "American Dream 🇺🇸 - Grad School at UVA"},
+    {"title": "AI for Drug Discovery 🧬"},
     {"title": "A bit more about me..."}
 ]
 
@@ -76,9 +80,10 @@ LOCATION_TO_CHAPTER = {
     "Thailand": 4, "Malaysia": 4, "South Korea": 4, "Sweden": 4,
     "Austria": 4, "Italy": 4, "France": 4,
     "Virginia": 5, "Washington DC": 5, "Maryland": 5, "New York": 5,
+    "Roanoke VA (Current Base)": 6,
     "New Jersey": 5, "Pennsylvania": 5, "Massachusetts": 5, "Florida": 5, "California": 5, "Illinois": 5, "Colorado": 5,
     "Washington": 5, "Oregon": 5, "Georgia": 5, "Tennessee": 5, "Indiana": 5, "Iowa": 5,
-    "New Mexico": 5, "Oklahoma": 5, "Missouri": 5
+    "New Mexico": 5, "Oklahoma": 5, "Missouri": 5, "Nebraska": 5, "Kentucky": 5
 }
 
 GALLERY_CAPTIONS = [
