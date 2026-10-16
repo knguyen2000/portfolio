@@ -27,3 +27,11 @@ def test_default_mode_index_in_range():
 
 def test_default_mode_is_vector_rag():
     assert AVAILABLE_MODES[DEFAULT_MODE_INDEX] == MODE_VECTOR_RAG
+
+
+def test_page_icon_is_not_a_media_manager_path():
+    """File paths go through Streamlit's media manager (/media/... can 500 on Cloud).
+    The icon must be a data URI or an emoji instead."""
+    from config.app_config import PAGE_ICON
+
+    assert PAGE_ICON.startswith("data:image/") or not PAGE_ICON.endswith(".png")
