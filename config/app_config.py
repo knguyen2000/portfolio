@@ -2,9 +2,13 @@
 Application configuration and constants.
 """
 
+from utils.image_data import image_to_data_uri
+
 # --- Page Config ---
 PAGE_TITLE = "Meet Khuong"
-PAGE_ICON = "static/panda_eat.png"
+# Data URI (not a file path): file paths are served via Streamlit's media manager,
+# whose /favicon.png and /media/... URLs can 500 on Streamlit Cloud. Emoji fallback.
+PAGE_ICON = image_to_data_uri("static/panda_eat.png", max_width=64) or "🐼"
 PAGE_LAYOUT = "wide"
 
 # --- Model Config ---
