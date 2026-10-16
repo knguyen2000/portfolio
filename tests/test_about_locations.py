@@ -8,6 +8,7 @@ NEW_LOCATIONS = {
     "Ohio": (-83.5379, 41.6528),  # Toledo
     "Vermont": (-72.6874, 44.4654),  # Stowe
     "New Hampshire": (-71.7476, 44.2273),  # Franconia
+    "Maine": (-70.7442, 43.2348),  # South Berwick
 }
 
 
