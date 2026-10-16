@@ -3,6 +3,7 @@ import os
 import streamlit as st
 
 from config.profile import PROFILE_HEADLINE, PROFILE_IMAGE_PATH, PROFILE_NAME, PROFILE_SUBTITLE, SOCIAL_LINKS
+from utils.image_data import image_to_data_uri
 
 
 def render_sidebar():
@@ -24,7 +25,15 @@ def render_sidebar():
             st.markdown("---")
 
         # Profile Image & Details
-        if os.path.exists(PROFILE_IMAGE_PATH):
+        profile_uri = image_to_data_uri(PROFILE_IMAGE_PATH, max_width=500)
+        if profile_uri:
+            st.markdown(
+                f'<div style="display:flex;justify-content:center;">'
+                f'<img src="{profile_uri}" alt="{PROFILE_NAME}" '
+                f'style="width:250px;max-width:100%;height:auto;"></div>',
+                unsafe_allow_html=True,
+            )
+        elif os.path.exists(PROFILE_IMAGE_PATH):
             st.image(PROFILE_IMAGE_PATH, width=250)
 
         st.markdown(f"""
