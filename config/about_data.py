@@ -57,6 +57,10 @@ LOCATIONS = {
     "Missouri": [-90.1994, 38.6270], # St. Louis
     "Nebraska": [-95.9375, 41.2586], # Omaha
     "Kentucky": [-85.7514, 38.2561], # Louisville
+    "Michigan": [-83.0458, 42.3314], # Detroit
+    "Ohio": [-83.5379, 41.6528], # Toledo
+    "Vermont": [-72.6874, 44.4654], # Stowe
+    "New Hampshire": [-71.7476, 44.2273], # Franconia
 }
 
 TITLES = [
@@ -83,7 +87,8 @@ LOCATION_TO_CHAPTER = {
     "Roanoke VA (Current Base)": 6,
     "New Jersey": 5, "Pennsylvania": 5, "Massachusetts": 5, "Florida": 5, "California": 5, "Illinois": 5, "Colorado": 5,
     "Washington": 5, "Oregon": 5, "Georgia": 5, "Tennessee": 5, "Indiana": 5, "Iowa": 5,
-    "New Mexico": 5, "Oklahoma": 5, "Missouri": 5, "Nebraska": 5, "Kentucky": 5
+    "New Mexico": 5, "Oklahoma": 5, "Missouri": 5, "Nebraska": 5, "Kentucky": 5,
+    "Michigan": 5, "Ohio": 5, "Vermont": 5, "New Hampshire": 5
 }
 
 GALLERY_CAPTIONS = [
