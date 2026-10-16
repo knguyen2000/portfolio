@@ -88,7 +88,7 @@ LOCATION_TO_CHAPTER = {
     "New Jersey": 5, "Pennsylvania": 5, "Massachusetts": 5, "Florida": 5, "California": 5, "Illinois": 5, "Colorado": 5,
     "Washington": 5, "Oregon": 5, "Georgia": 5, "Tennessee": 5, "Indiana": 5, "Iowa": 5,
     "New Mexico": 5, "Oklahoma": 5, "Missouri": 5, "Nebraska": 5, "Kentucky": 5,
-    "Michigan": 5, "Ohio": 5, "Vermont": 5, "New Hampshire": 5
+    "Michigan": 6, "Ohio": 6, "Vermont": 6, "New Hampshire": 6
 }
 
 GALLERY_CAPTIONS = [

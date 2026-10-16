@@ -21,7 +21,7 @@ def test_new_location_on_map(name, coords):
 
 @pytest.mark.parametrize("name", NEW_LOCATIONS)
 def test_new_location_has_chapter(name):
-    assert LOCATION_TO_CHAPTER[name] == 5
+    assert LOCATION_TO_CHAPTER[name] == 6
 
 
 def test_every_location_has_chapter():
