@@ -9,6 +9,7 @@ NEW_LOCATIONS = {
     "Vermont": (-72.6874, 44.4654),  # Stowe
     "New Hampshire": (-71.7476, 44.2273),  # Franconia
     "Maine": (-70.7442, 43.2348),  # South Berwick
+    "Delaware": (-75.5398, 39.7447),  # Wilmington
 }
 
 
