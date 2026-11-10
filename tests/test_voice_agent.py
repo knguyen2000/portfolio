@@ -9,10 +9,10 @@ class TestVoiceModeConfig:
 
         assert MODE_VOICE == "Voice"
 
-    def test_voice_mode_in_available_modes(self):
+    def test_voice_mode_not_selectable(self):
         from config.app_config import AVAILABLE_MODES, MODE_VOICE
 
-        assert MODE_VOICE in AVAILABLE_MODES
+        assert MODE_VOICE not in AVAILABLE_MODES
 
     def test_voice_state_initialized(self):
         with open("state.py", encoding="utf-8") as f:

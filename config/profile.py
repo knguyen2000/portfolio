@@ -12,5 +12,5 @@ SOCIAL_LINKS = {
     "linkedin": "https://www.linkedin.com/in/khuongng/",
     "github": "https://github.com/knguyen2000",
     "email": "mailto:khuongnguyen211000@gmail.com",
-    "resume": "https://drive.google.com/file/d/1Hr3VkBGKb0rQfC0bygqzU0-lEAroUTym/view"
+    "resume": "https://drive.google.com/file/d/1fENUuqoAxb0RXQ03gztnDbLqZ36BeM1B/view?usp=sharing"
 }
